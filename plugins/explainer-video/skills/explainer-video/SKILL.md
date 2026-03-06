@@ -1,29 +1,21 @@
 ---
 name: explainer-video
-description: Produce a branded marketing explainer video for any web application. Orchestrates Playwright screen recording, branded slide overlays, ElevenLabs narration, and FFmpeg assembly.
-tags: [video, explainer, marketing, playwright, ffmpeg, elevenlabs, demo]
-version: 0.1.0
+description: Produce a branded SMEC AI marketing explainer video for any web application. Orchestrates Playwright screen recording, branded slide overlays, ElevenLabs narration, and FFmpeg assembly. Works across any project repo.
+tags: [video, explainer, marketing, playwright, ffmpeg, elevenlabs, demo, smec-ai]
+version: 3.0.0
 user-invocable: true
 allowed-tools: Bash, Read, Write, Edit, Grep, Glob, Agent
 ---
 
-# Explainer Video Pipeline
+# SMEC AI Explainer Video Pipeline
 
-Generate a professional branded marketing video for any web application. The pipeline records a live browser demo, overlays branded slides, adds professional narration, and assembles everything with FFmpeg.
+Generate a professional SMEC AI branded marketing video for any web application. The pipeline records a live browser demo, overlays branded slides, adds professional narration, and assembles everything with FFmpeg. This skill works across any project repo — it creates the `scripts/video/` directory in the target project.
 
-## Setup
-
-Run the interactive setup script to check prerequisites and configure optional services (ElevenLabs, YouTube upload):
-
-```bash
-bash ~/.claude/plugins/*/explainer-video/setup.sh
-```
-
-Or check manually:
+## Prerequisites
 
 - **Playwright** (`bun add -d playwright && bunx playwright install chromium`)
 - **FFmpeg** (`brew install ffmpeg`)
-- **ElevenLabs MCP** or **edge-tts** for narration (setup script configures this)
+- **ElevenLabs MCP** or **edge-tts** for narration
 - A running web app to record
 
 ## Architecture Note
@@ -32,28 +24,7 @@ The recorded app may be **fully client-side** — all processing happens in the 
 
 ## Pipeline Phases
 
-Execute each phase in order. All output goes to `scripts/video/` in the project.
-
-### Phase 0: Setup Check (auto, first run only)
-
-Before starting, silently check if prerequisites are installed by running these commands:
-
-```bash
-command -v ffmpeg && echo "ffmpeg: ok" || echo "ffmpeg: MISSING"
-command -v edge-tts && echo "edge-tts: ok" || echo "edge-tts: MISSING"
-bunx playwright --version 2>/dev/null && echo "playwright: ok" || echo "playwright: MISSING"
-```
-
-Also check if ElevenLabs MCP is available by attempting `mcp__elevenlabs__list_voices`. If it fails or is not available, note that edge-tts will be used instead.
-
-**If anything is missing**, show the user what's needed and offer to install it:
-- FFmpeg: `brew install ffmpeg` (macOS) or `apt install ffmpeg` (Linux)
-- Playwright: `bun add -d playwright && bunx playwright install chromium`
-- edge-tts: `pip install edge-tts`
-
-**If ElevenLabs is not configured**, ask the user: *"Do you have an ElevenLabs API key for premium narration? (If not, I'll use edge-tts -- it's free and works great.)"* If they provide a key, add the MCP server config to `~/.claude/settings.json` and tell them to restart Claude Code after the video is done to activate it for next time. For this session, use edge-tts.
-
-**If everything is OK**, proceed silently to Phase 1 without printing anything.
+Execute each phase in order. All output goes to `scripts/video/` in the target project.
 
 ### Phase 1: Analyze the App
 
@@ -64,17 +35,21 @@ Also check if ElevenLabs MCP is available by attempting `mcp__elevenlabs__list_v
 
 ### Phase 2: Branding Config
 
-Ask the user for:
-- Company/product name
-- Logo file path (**SVG preferred** for crisp rendering at any size; PNG fallback)
-- Brand colors (primary gradient, accent)
-- Website URL
-- Tagline (optional)
+Confirm or override these defaults with the user:
+- **Company/product name** — default: **SMEC AI**
+- **Logo** — default: SMEC AI SVG logo. Build the SVG from the `SmecLogo.tsx` component (house icon + person + "SMEC AI" text, purple gradient `#8B5CF6` → `#A855F7`). PNG fallback: `smec_ai_logo_horizontal.png` (found in multiple SMEC projects and `~/.claude/skills/markdown-to-pdf/`).
+- **Brand colors** — default: dark purple theme (`#0d0618` bg, `#a78bfa` accent). Ask the user if project-specific.
+- **Website URL** — default: **smecai.au**
+- **Tagline** — ask the user (project-specific)
+
+**Recording approach** — default: **record against localhost** (start dev server, record with Playwright)
+
+**Voice** — default: **Male Australian accent** (ElevenLabs or edge-tts `en-AU-WilliamNeural`)
 
 Create `scripts/video/branding.json`:
 ```json
 {
-  "company": "Company Name",
+  "company": "SMEC AI",
   "logoPath": "scripts/video/assets/logo.svg",
   "colors": {
     "bgPrimary": "#0d0618",
@@ -83,7 +58,7 @@ Create `scripts/video/branding.json`:
     "accentSolid": "#a78bfa",
     "accentSecondary": "#818cf8"
   },
-  "url": "example.com",
+  "url": "smecai.au",
   "tagline": "Your tagline here"
 }
 ```
@@ -100,30 +75,39 @@ Structure:
 5. **Value props** (10-15s): Privacy, speed, standards compliance
 6. **CTA** (5s): "Ready to use today"
 
+**Pronunciation gotchas for TTS (IMPORTANT):**
+- **SMEC AI** — write as **"Smeck A I"** in narration text so TTS pronounces it correctly (not "smee-k" or "smek-ay"). Similarly write **"Smeck A I dot au"** for the URL, not "smecai.au".
+- **Avoid "analyses"** (verb) — TTS reads it as the noun ("uh-NAL-uh-seez"). Use "reviews", "processes", or "examines" instead.
+- **Spell out abbreviations** that TTS might mangle: ".docx" → "dot docx", "PDF" is fine as-is.
+- **Test the audio** before full assembly — listen for mispronunciations and rephrase problem words.
+
 Save to `scripts/video/narration.txt`.
 
 ### Phase 4: Generate Audio
 
-Try ElevenLabs first. If the MCP tool is not available or fails, fall back to edge-tts automatically.
+**Voice default:** Male Australian accent.
 
-**Option A -- ElevenLabs (preferred, requires API key):**
-Use `mcp__elevenlabs__text_to_speech` with a professional voice. Save to `scripts/video/narration-pro.mp3`.
+**Option A — ElevenLabs (preferred):**
+Use `mcp__elevenlabs__text_to_speech` with a professional male Australian voice.
 
-**Option B -- edge-tts (automatic fallback, no API key needed):**
+**IMPORTANT: Voice library vs account voices.** `search_voice_library` returns PUBLIC voices that are NOT usable until added to your account. Use `search_voices` (no "library") to find voices already in the account. If no suitable voice exists, use an account voice like "startup presentation" or fall back to edge-tts.
+
+Save to `scripts/video/narration-pro.mp3`.
+
+**Option B — edge-tts (free fallback):**
 ```bash
-pip install edge-tts  # one-time install
 edge-tts --text "$(cat scripts/video/narration.txt)" \
   --voice en-AU-WilliamNeural \
   --write-media scripts/video/narration-pro.mp3
 ```
-
-**Fallback logic:** If ElevenLabs MCP is not configured or the tool call fails, automatically use edge-tts instead. Do not ask the user -- just fall back and note which method was used.
 
 Check duration: `ffprobe -v quiet -show_entries format=duration -of csv=p=0 scripts/video/narration-pro.mp3`
 
 ### Phase 5: Define Slides
 
 Plan 7-10 branded slides. Available types: **intro, title, problem, benefits, stat, section, outro**.
+
+**Do NOT include `section-line` divs** (gradient accent bars under headings) — they look out of place in most designs. Keep slides clean with just headings + content.
 
 Recommended narrative arc:
 
@@ -144,16 +128,17 @@ Recommended narrative arc:
 
 Create `scripts/video/render-slides.ts` using Playwright to screenshot HTML slides.
 
-Use the slide template from this plugin's `assets/slide-template.html` as the base. Copy it into your project's `scripts/video/slides/` directory and customize CSS custom properties for the project's branding.
+Use the slide template from `~/.claude/skills/explainer-video/assets/slide-template.html` as the base. Customize CSS custom properties for the project's branding.
 
 Key patterns:
-- **Use inline SVG** for logos (not PNG base64) -- renders crisp at any size
+- **Use inline SVG** for logos (not PNG base64) — renders crisp at any size
 - Each slide type has its own HTML builder function
 - Playwright screenshots at 1280x720
 - Output to `scripts/video/assets/`
+- **No section-line divs** — omit the gradient bar elements
 
 ```typescript
-// SVG logo -- read as UTF-8 string, inject directly into HTML
+// SVG logo — read as UTF-8 string, inject directly into HTML
 const LOGO_SVG = readFileSync("assets/logo.svg", "utf-8");
 
 // In slide HTML: wrap in a sized container
@@ -168,12 +153,12 @@ case "problem": {
   return `<div class="slide-problem">
     <h2>${slide.content.heading}</h2>
     <ul class="problem-list">
-      ${items.map(item => `<li><span class="problem-x">X</span>${item}</li>`).join("\n")}
+      ${items.map(item => `<li><span class="problem-x">✕</span>${item}</li>`).join("\n")}
     </ul>
   </div>`;
 }
 
-// Benefits slide: purple dot markers for value props
+// Benefits slide: purple dot markers for value props (NO section-line div)
 case "benefits": {
   const items = slide.content.items.split("|");
   return `<div class="slide-benefits">
@@ -195,7 +180,7 @@ Verify output PNGs exist and look correct.
 
 ### Phase 8: Write Recording Script
 
-Create `scripts/video/record-demo.ts` -- a Playwright script that:
+Create `scripts/video/record-demo.ts` — a Playwright script that:
 
 1. Launches headless Chromium with `recordVideo: { dir, size: { width: 1280, height: 720 } }`
 2. Navigates to the app
@@ -206,13 +191,15 @@ See `references/playwright-recording.md` for patterns.
 
 **Critical timing:** Align hold periods with slide overlay timestamps. The recording should have ~5-10s of "idle" time at each slide overlay point so the demo footage isn't competing with the overlay.
 
-**Slide overlap strategy for form-filling demos:** Start filling form fields BEFORE the last slide fades out. The first few fields fill UNDER the slide (invisible), so when the slide fades, the viewer sees the form partially filled and the cursor actively typing -- more engaging than watching an empty form. Key: ensure the most interesting interaction (e.g. autocomplete dropdown, dynamic validation) happens AFTER the slide fades, not underneath it.
+**Recording must be >= narration duration.** If the recording is shorter, use `tpad=stop_mode=clone:stop_duration=15` in the FFmpeg filter to pad with the last frame. Processing times vary between runs (caching effects), so always pad.
+
+**Slide overlap strategy for form-filling demos:** Start filling form fields BEFORE the last slide fades out. The first few fields fill UNDER the slide (invisible), so when the slide fades, the viewer sees the form partially filled and the cursor actively typing — more engaging than watching an empty form. Key: ensure the most interesting interaction (e.g. autocomplete dropdown, dynamic validation) happens AFTER the slide fades, not underneath it.
 
 **Google Places Autocomplete in Playwright recordings:** Headless Playwright can trigger Google Places autocomplete. Type a partial address with `pressSequentially()`, wait for `.pac-container .pac-item` selector, then click the first suggestion. Include a fallback to manual entry in case the API doesn't respond. The autocomplete dropdown renders normally in headless mode.
 
 ### Phase 9: Write Assembly Script
 
-Create `scripts/video/assemble.sh` -- FFmpeg complex filter graph that composites everything.
+Create `scripts/video/assemble.sh` — FFmpeg complex filter graph that composites everything.
 
 See `references/ffmpeg-assembly.md` for the complete pattern.
 
@@ -224,13 +211,17 @@ See `references/ffmpeg-assembly.md` for the complete pattern.
 
 3. **Staggered crossfade for consecutive slides:** The incoming slide must start fading in 0.5s BEFORE the outgoing slide starts fading out. This prevents the base video (form/app) from bleeding through during transitions.
 
+4. **NO bash comments inside filter_complex string.** FFmpeg treats `#` as part of the filter syntax and fails with "Trailing garbage" errors. Put all comments OUTSIDE the filter_complex block.
+
+5. **Pad short recordings:** Add `tpad=stop_mode=clone:stop_duration=15` to the base video filter chain to clone the last frame if the recording is shorter than the audio.
+
 ```
-# CORRECT: Staggered crossfade -- no bleed-through
+# CORRECT: Staggered crossfade — no bleed-through
 Title fade-out:    st=6.5  (starts fading at 6.5, gone by 7.0)
 Problem fade-in:   st=6.0  (starts fading at 6.0, solid by 6.5)
 -> Problem is fully opaque BEFORE title starts fading out
 
-# WRONG: Simultaneous crossfade -- form bleeds through
+# WRONG: Simultaneous crossfade — form bleeds through
 Title fade-out:    st=6.5
 Problem fade-in:   st=6.5
 -> Both at 50% alpha mid-fade, base video visible
@@ -277,34 +268,35 @@ Common adjustments:
 - **Slide timing off:** Adjust `enable='between(t,X,Y)'` values in `assemble.sh`
 - **Form bleeds through transitions:** Use staggered crossfade (see Phase 9)
 - **Recording too fast/slow:** Adjust `waitForTimeout()` values in `record-demo.ts`
+- **Recording shorter than audio:** Increase hold times or add `tpad` padding in FFmpeg
 - **Logo too small/large:** Adjust height in `render-slides.ts`
 - **Logo grainy:** Switch from PNG to inline SVG
+- **Unwanted horizontal bar on slides:** Remove `section-line` divs from `render-slides.ts`
 - **Audio doesn't match:** Re-generate narration or adjust recording timing
-- **Interactive feature hidden by slide:** Start form filling earlier so interactions are visible between slide overlays -- see "Slide overlap strategy" in Phase 8
+- **TTS mispronunciation:** Rephrase the word (see pronunciation gotchas in Phase 3)
+- **Interactive feature hidden by slide:** Start form filling earlier so interactions are visible between slide overlays — see "Slide overlap strategy" in Phase 8
 
-### Phase 12: YouTube Upload (Optional)
+### Phase 12: YouTube Upload
 
-Upload the finished video to YouTube using the Composio YouTube MCP tools.
+**No YouTube MCP tools are available.** Use Chrome browser automation:
 
-**File transfer to Composio sandbox:**
-1. Upload video to a file hosting service: `curl -s -F "reqtype=fileupload" -F "fileToUpload=@output/explainer-video.mp4" https://catbox.moe/user/api.php`
-2. In Composio workbench: download from the URL with `subprocess.run(["curl", "-sL", "-o", "/home/user/video.mp4", "<url>"])`
-3. Call `upload_local_file("/home/user/video.mp4")` to get an `s3key`
-4. Use `YOUTUBE_MULTIPART_UPLOAD_VIDEO` with `videoFile: { name, mimetype, s3key }`
+1. Open YouTube Studio: `mcp__claude-in-chrome__navigate` to `https://studio.youtube.com`
+2. Click **Create** → **Upload videos**
+3. The native OS file picker cannot be automated — tell the user to click **Select files** and navigate to `output/explainer-video.mp4` (tip: **Cmd+Shift+G** in macOS file picker to paste path)
+4. Once uploading, use browser automation to fill in title, description, tags, and visibility
 
-**Replacing an existing video:** YouTube doesn't support replacing video files. You must delete the old video (`YOUTUBE_DELETE_VIDEO` with `confirmDelete: true`) and upload a new one. Run both in parallel via `COMPOSIO_MULTI_EXECUTE_TOOL`.
-
-**Key gotchas:**
-- `YOUTUBE_LIST_CHANNEL_VIDEOS` requires `channelId` -- use the UC ID from connection info, not `mine: true`
-- `videoFile` must be a `FileUploadable` dict with `name`, `mimetype`, `s3key` -- not a path or URL
-- New uploads need processing time before thumbnails/playback work (~1-5 min)
+**Suggested YouTube metadata:**
+- **Title:** `[Product Name] — [Tagline]` (e.g. "Health Report Generator — Microsoft Word to Professional PDF")
+- **Description:** Include product URL, feature list, and "Built by SMEC AI — smecai.au"
+- **Tags:** product name, SMEC AI, key features
+- **Visibility:** Unlisted (for review) or Public
 
 ## File Structure
 
 ```
 scripts/video/
   branding.json            # Brand config
-  narration.txt            # Narration script
+  narration.txt            # Narration script (with TTS-friendly spelling)
   narration-pro.mp3        # Generated audio
   render-slides.ts         # Slide renderer (Playwright)
   record-demo.ts           # Screen recorder (Playwright)
@@ -313,13 +305,24 @@ scripts/video/
   slides/
     slide-template.html    # HTML/CSS template
   assets/
-    logo.svg               # Brand logo (SVG preferred)
+    logo.svg               # SMEC AI SVG logo (purple gradient)
+    logo.png               # SMEC AI PNG logo (watermark fallback)
     01-intro.png           # Rendered slides
     02-title.png
-    02a-problem.png
-    02b-benefits-start.png
+    03-problem.png
+    04-benefits.png
     ...
 output/
   demo.webm                # Raw recording
   explainer-video.mp4      # Final output
+```
+
+## .gitignore Additions
+
+Add these to the project's `.gitignore` to avoid committing large binaries:
+```
+/output/
+scripts/video/narration-pro.mp3
+scripts/video/assets/*.png
+scripts/video/assets/logo.png
 ```
