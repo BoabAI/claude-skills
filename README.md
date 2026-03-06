@@ -6,7 +6,7 @@ Production-tested [Claude Code](https://docs.anthropic.com/en/docs/claude-code) 
 
 | Skill | Description | Version |
 |-------|-------------|---------|
-| `explainer-video` | Produce branded marketing explainer videos for any web app. Playwright recording + slide overlays + narration + FFmpeg assembly. | 2.1.0 |
+| `explainer-video` | Produce branded marketing explainer videos for any web app. Playwright recording + slide overlays + narration + FFmpeg assembly. | 0.1.0 |
 
 ## Installation
 

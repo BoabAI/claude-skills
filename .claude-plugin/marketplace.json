@@ -13,7 +13,7 @@
       "name": "explainer-video",
       "source": "./plugins/explainer-video",
       "description": "Produce branded marketing explainer videos for any web app. Orchestrates Playwright screen recording, slide overlays, ElevenLabs narration, and FFmpeg assembly.",
-      "version": "2.1.0",
+      "version": "0.1.0",
       "author": {
         "name": "BoabAI"
       },

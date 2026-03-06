@@ -2,7 +2,7 @@
 name: explainer-video
 description: Produce a branded marketing explainer video for any web application. Orchestrates Playwright screen recording, branded slide overlays, ElevenLabs narration, and FFmpeg assembly.
 tags: [video, explainer, marketing, playwright, ffmpeg, elevenlabs, demo]
-version: 2.1.0
+version: 0.1.0
 user-invocable: true
 allowed-tools: Bash, Read, Write, Edit, Grep, Glob, Agent
 ---

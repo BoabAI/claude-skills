@@ -1,13 +1,15 @@
-name: Sync Plugin Versions
+name: Auto-Increment Patch Version
 
 on:
   push:
     branches: [main]
     paths:
-      - 'plugins/*/.claude-plugin/plugin.json'
+      - 'plugins/*/skills/**'
+      - 'plugins/*/references/**'
+      - 'plugins/*/assets/**'
 
 jobs:
-  sync-versions:
+  bump-version:
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -15,24 +17,45 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Sync versions from plugin.json to marketplace.json and README
+      - name: Bump patch version for changed plugins
         run: |
-          # Read each plugin's version from its plugin.json and update marketplace.json
-          for plugin_json in plugins/*/.claude-plugin/plugin.json; do
-            plugin_dir=$(dirname "$(dirname "$plugin_json")")
-            plugin_name=$(jq -r '.name' "$plugin_json")
-            plugin_version=$(jq -r '.version' "$plugin_json")
+          for plugin_dir in plugins/*/; do
+            plugin_json="$plugin_dir/.claude-plugin/plugin.json"
+            [ -f "$plugin_json" ] || continue
 
-            echo "Found $plugin_name v$plugin_version"
+            # Check if this plugin had changes in this push
+            plugin_name=$(basename "$plugin_dir")
+            changed=$(git diff --name-only HEAD~1 HEAD -- "$plugin_dir" | grep -v '.claude-plugin/plugin.json' | head -1)
+            [ -z "$changed" ] && continue
+
+            # Read current version and bump patch
+            current=$(jq -r '.version' "$plugin_json")
+            major=$(echo "$current" | cut -d. -f1)
+            minor=$(echo "$current" | cut -d. -f2)
+            patch=$(echo "$current" | cut -d. -f3)
+            new_patch=$((patch + 1))
+            new_version="$major.$minor.$new_patch"
+
+            echo "Bumping $plugin_name: $current -> $new_version"
+
+            # Update plugin.json
+            jq --arg ver "$new_version" '.version = $ver' "$plugin_json" > /tmp/plugin.json \
+              && mv /tmp/plugin.json "$plugin_json"
+
+            # Update SKILL.md frontmatter
+            skill_md="$plugin_dir/skills/$plugin_name/SKILL.md"
+            if [ -f "$skill_md" ]; then
+              sed -i "s/^version: .*/version: $new_version/" "$skill_md"
+            fi
 
             # Update marketplace.json
-            jq --arg name "$plugin_name" --arg ver "$plugin_version" \
+            jq --arg name "$plugin_name" --arg ver "$new_version" \
               '(.plugins[] | select(.name == $name)).version = $ver' \
               .claude-plugin/marketplace.json > /tmp/marketplace.json \
               && mv /tmp/marketplace.json .claude-plugin/marketplace.json
 
-            # Update README.md version column only (preserve existing description)
-            sed -i "s/| \`$plugin_name\` |\(.*\)| [0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]* |/| \`$plugin_name\` |\1| $plugin_version |/" README.md
+            # Update README.md version column only (preserve description)
+            sed -i "s/| \`$plugin_name\` |\(.*\)| [0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]* |/| \`$plugin_name\` |\1| $new_version |/" README.md
           done
 
       - name: Check for changes
@@ -44,11 +67,11 @@ jobs:
             echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Commit version sync
+      - name: Commit version bump
         if: steps.changes.outputs.changed == 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add .claude-plugin/marketplace.json README.md
-          git commit -m "chore: sync plugin versions from plugin.json"
+          git add .
+          git commit -m "chore: auto-bump patch version"
           git push
