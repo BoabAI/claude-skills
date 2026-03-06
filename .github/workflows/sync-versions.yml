@@ -31,9 +31,8 @@ jobs:
               .claude-plugin/marketplace.json > /tmp/marketplace.json \
               && mv /tmp/marketplace.json .claude-plugin/marketplace.json
 
-            # Update README.md version column
-            # Matches the table row by plugin name and updates the version
-            sed -i "s/| \`$plugin_name\` |.*|.*|/| \`$plugin_name\` | $(jq -r '.description' "$plugin_json" | head -c 120) | $plugin_version |/" README.md
+            # Update README.md version column only (preserve existing description)
+            sed -i "s/| \`$plugin_name\` |\(.*\)| [0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]* |/| \`$plugin_name\` |\1| $plugin_version |/" README.md
           done
 
       - name: Check for changes
