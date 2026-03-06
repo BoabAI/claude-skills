@@ -37,7 +37,7 @@ Execute each phase in order. All output goes to `scripts/video/` in the target p
 
 Confirm or override these defaults with the user:
 - **Company/product name** — default: **SMEC AI**
-- **Logo** — default: SMEC AI SVG logo. Build the SVG from the `SmecLogo.tsx` component (house icon + person + "SMEC AI" text, purple gradient `#8B5CF6` → `#A855F7`). PNG fallback: `smec_ai_logo_horizontal.png` (found in multiple SMEC projects and `~/.claude/skills/markdown-to-pdf/`).
+- **Logo** — default: SMEC AI SVG logo. **Always source a static SVG file** — never regenerate or hand-draw the logo. The canonical white SVG is at `~/Projects/webform-to-hl7/scripts/video/assets/smec-logo-white.svg` (1096x787, white fill, house+person icon + "SMEC AI" text as vector paths). Copy it to `scripts/video/assets/logo.svg`. PNG fallback: `smec_ai_logo_horizontal.png` (found in multiple SMEC projects and `~/.claude/skills/markdown-to-pdf/`).
 - **Brand colors** — default: dark purple theme (`#0d0618` bg, `#a78bfa` accent). Ask the user if project-specific.
 - **Website URL** — default: **smecai.au**
 - **Tagline** — ask the user (project-specific)
@@ -131,7 +131,7 @@ Create `scripts/video/render-slides.ts` using Playwright to screenshot HTML slid
 Use the slide template from `~/.claude/skills/explainer-video/assets/slide-template.html` as the base. Customize CSS custom properties for the project's branding.
 
 Key patterns:
-- **Use inline SVG** for logos (not PNG base64) — renders crisp at any size
+- **Use a static SVG logo** — copy from the canonical source (see Phase 2), never regenerate. Read as UTF-8 and inject inline into HTML for crisp rendering at any size
 - Each slide type has its own HTML builder function
 - Playwright screenshots at 1280x720
 - Output to `scripts/video/assets/`
