@@ -1,5 +1,5 @@
 {
   "name": "explainer-video",
   "description": "Produce branded marketing explainer videos for any web app. Orchestrates Playwright screen recording, slide overlays, ElevenLabs narration, and FFmpeg assembly.",
-  "version": "2.0.0"
+  "version": "2.1.0"
 }

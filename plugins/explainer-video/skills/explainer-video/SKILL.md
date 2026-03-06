@@ -2,7 +2,7 @@
 name: explainer-video
 description: Produce a branded marketing explainer video for any web application. Orchestrates Playwright screen recording, branded slide overlays, ElevenLabs narration, and FFmpeg assembly.
 tags: [video, explainer, marketing, playwright, ffmpeg, elevenlabs, demo]
-version: 2.0.0
+version: 2.1.0
 user-invocable: true
 allowed-tools: Bash, Read, Write, Edit, Grep, Glob, Agent
 ---
@@ -17,6 +17,10 @@ Generate a professional branded marketing video for any web application. The pip
 - **FFmpeg** (`brew install ffmpeg`)
 - **ElevenLabs MCP** or **edge-tts** for narration
 - A running web app to record
+
+## Architecture Note
+
+The recorded app may be **fully client-side** — all processing happens in the browser with the hosting platform (e.g. AWS Amplify, Vercel, Netlify) just serving static files. No patient/user data touches the server. When writing narration and slides, emphasise this as a privacy/data sovereignty feature if applicable (e.g. "Everything runs locally in the browser. No data leaves the device.").
 
 ## Pipeline Phases
 
@@ -71,10 +75,10 @@ Save to `scripts/video/narration.txt`.
 
 ### Phase 4: Generate Audio
 
-**Option A — ElevenLabs (preferred):**
+**Option A -- ElevenLabs (preferred):**
 Use `mcp__elevenlabs__text_to_speech` with a professional voice. Save to `scripts/video/narration-pro.mp3`.
 
-**Option B — edge-tts (free fallback):**
+**Option B -- edge-tts (free fallback):**
 ```bash
 edge-tts --text "$(cat scripts/video/narration.txt)" \
   --voice en-AU-WilliamNeural \
@@ -106,16 +110,16 @@ Recommended narrative arc:
 
 Create `scripts/video/render-slides.ts` using Playwright to screenshot HTML slides.
 
-Use the slide template from `~/.claude/skills/explainer-video/assets/slide-template.html` as the base. Customize CSS custom properties for the project's branding.
+Use the slide template from this plugin's `assets/slide-template.html` as the base. Copy it into your project's `scripts/video/slides/` directory and customize CSS custom properties for the project's branding.
 
 Key patterns:
-- **Use inline SVG** for logos (not PNG base64) — renders crisp at any size
+- **Use inline SVG** for logos (not PNG base64) -- renders crisp at any size
 - Each slide type has its own HTML builder function
 - Playwright screenshots at 1280x720
 - Output to `scripts/video/assets/`
 
 ```typescript
-// SVG logo — read as UTF-8 string, inject directly into HTML
+// SVG logo -- read as UTF-8 string, inject directly into HTML
 const LOGO_SVG = readFileSync("assets/logo.svg", "utf-8");
 
 // In slide HTML: wrap in a sized container
@@ -130,7 +134,7 @@ case "problem": {
   return `<div class="slide-problem">
     <h2>${slide.content.heading}</h2>
     <ul class="problem-list">
-      ${items.map(item => `<li><span class="problem-x">✕</span>${item}</li>`).join("\n")}
+      ${items.map(item => `<li><span class="problem-x">X</span>${item}</li>`).join("\n")}
     </ul>
   </div>`;
 }
@@ -157,7 +161,7 @@ Verify output PNGs exist and look correct.
 
 ### Phase 8: Write Recording Script
 
-Create `scripts/video/record-demo.ts` — a Playwright script that:
+Create `scripts/video/record-demo.ts` -- a Playwright script that:
 
 1. Launches headless Chromium with `recordVideo: { dir, size: { width: 1280, height: 720 } }`
 2. Navigates to the app
@@ -168,9 +172,13 @@ See `references/playwright-recording.md` for patterns.
 
 **Critical timing:** Align hold periods with slide overlay timestamps. The recording should have ~5-10s of "idle" time at each slide overlay point so the demo footage isn't competing with the overlay.
 
+**Slide overlap strategy for form-filling demos:** Start filling form fields BEFORE the last slide fades out. The first few fields fill UNDER the slide (invisible), so when the slide fades, the viewer sees the form partially filled and the cursor actively typing -- more engaging than watching an empty form. Key: ensure the most interesting interaction (e.g. autocomplete dropdown, dynamic validation) happens AFTER the slide fades, not underneath it.
+
+**Google Places Autocomplete in Playwright recordings:** Headless Playwright can trigger Google Places autocomplete. Type a partial address with `pressSequentially()`, wait for `.pac-container .pac-item` selector, then click the first suggestion. Include a fallback to manual entry in case the API doesn't respond. The autocomplete dropdown renders normally in headless mode.
+
 ### Phase 9: Write Assembly Script
 
-Create `scripts/video/assemble.sh` — FFmpeg complex filter graph that composites everything.
+Create `scripts/video/assemble.sh` -- FFmpeg complex filter graph that composites everything.
 
 See `references/ffmpeg-assembly.md` for the complete pattern.
 
@@ -183,15 +191,15 @@ See `references/ffmpeg-assembly.md` for the complete pattern.
 3. **Staggered crossfade for consecutive slides:** The incoming slide must start fading in 0.5s BEFORE the outgoing slide starts fading out. This prevents the base video (form/app) from bleeding through during transitions.
 
 ```
-# CORRECT: Staggered crossfade — no bleed-through
+# CORRECT: Staggered crossfade -- no bleed-through
 Title fade-out:    st=6.5  (starts fading at 6.5, gone by 7.0)
 Problem fade-in:   st=6.0  (starts fading at 6.0, solid by 6.5)
-→ Problem is fully opaque BEFORE title starts fading out
+-> Problem is fully opaque BEFORE title starts fading out
 
-# WRONG: Simultaneous crossfade — form bleeds through
+# WRONG: Simultaneous crossfade -- form bleeds through
 Title fade-out:    st=6.5
 Problem fade-in:   st=6.5
-→ Both at 50% alpha mid-fade, base video visible
+-> Both at 50% alpha mid-fade, base video visible
 ```
 
 ### Phase 10: Write Orchestrator
@@ -238,6 +246,24 @@ Common adjustments:
 - **Logo too small/large:** Adjust height in `render-slides.ts`
 - **Logo grainy:** Switch from PNG to inline SVG
 - **Audio doesn't match:** Re-generate narration or adjust recording timing
+- **Interactive feature hidden by slide:** Start form filling earlier so interactions are visible between slide overlays -- see "Slide overlap strategy" in Phase 8
+
+### Phase 12: YouTube Upload (Optional)
+
+Upload the finished video to YouTube using the Composio YouTube MCP tools.
+
+**File transfer to Composio sandbox:**
+1. Upload video to a file hosting service: `curl -s -F "reqtype=fileupload" -F "fileToUpload=@output/explainer-video.mp4" https://catbox.moe/user/api.php`
+2. In Composio workbench: download from the URL with `subprocess.run(["curl", "-sL", "-o", "/home/user/video.mp4", "<url>"])`
+3. Call `upload_local_file("/home/user/video.mp4")` to get an `s3key`
+4. Use `YOUTUBE_MULTIPART_UPLOAD_VIDEO` with `videoFile: { name, mimetype, s3key }`
+
+**Replacing an existing video:** YouTube doesn't support replacing video files. You must delete the old video (`YOUTUBE_DELETE_VIDEO` with `confirmDelete: true`) and upload a new one. Run both in parallel via `COMPOSIO_MULTI_EXECUTE_TOOL`.
+
+**Key gotchas:**
+- `YOUTUBE_LIST_CHANNEL_VIDEOS` requires `channelId` -- use the UC ID from connection info, not `mine: true`
+- `videoFile` must be a `FileUploadable` dict with `name`, `mimetype`, `s3key` -- not a path or URL
+- New uploads need processing time before thumbnails/playback work (~1-5 min)
 
 ## File Structure
 

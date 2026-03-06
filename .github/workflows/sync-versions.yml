@@ -1,0 +1,55 @@
+name: Sync Plugin Versions
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'plugins/*/.claude-plugin/plugin.json'
+
+jobs:
+  sync-versions:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Sync versions from plugin.json to marketplace.json and README
+        run: |
+          # Read each plugin's version from its plugin.json and update marketplace.json
+          for plugin_json in plugins/*/.claude-plugin/plugin.json; do
+            plugin_dir=$(dirname "$(dirname "$plugin_json")")
+            plugin_name=$(jq -r '.name' "$plugin_json")
+            plugin_version=$(jq -r '.version' "$plugin_json")
+
+            echo "Found $plugin_name v$plugin_version"
+
+            # Update marketplace.json
+            jq --arg name "$plugin_name" --arg ver "$plugin_version" \
+              '(.plugins[] | select(.name == $name)).version = $ver' \
+              .claude-plugin/marketplace.json > /tmp/marketplace.json \
+              && mv /tmp/marketplace.json .claude-plugin/marketplace.json
+
+            # Update README.md version column
+            # Matches the table row by plugin name and updates the version
+            sed -i "s/| \`$plugin_name\` |.*|.*|/| \`$plugin_name\` | $(jq -r '.description' "$plugin_json" | head -c 120) | $plugin_version |/" README.md
+          done
+
+      - name: Check for changes
+        id: changes
+        run: |
+          if git diff --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Commit version sync
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .claude-plugin/marketplace.json README.md
+          git commit -m "chore: sync plugin versions from plugin.json"
+          git push
