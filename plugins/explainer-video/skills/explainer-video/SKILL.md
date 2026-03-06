@@ -75,15 +75,20 @@ Save to `scripts/video/narration.txt`.
 
 ### Phase 4: Generate Audio
 
-**Option A -- ElevenLabs (preferred):**
+Try ElevenLabs first. If the MCP tool is not available or fails, fall back to edge-tts automatically.
+
+**Option A -- ElevenLabs (preferred, requires API key):**
 Use `mcp__elevenlabs__text_to_speech` with a professional voice. Save to `scripts/video/narration-pro.mp3`.
 
-**Option B -- edge-tts (free fallback):**
+**Option B -- edge-tts (automatic fallback, no API key needed):**
 ```bash
+pip install edge-tts  # one-time install
 edge-tts --text "$(cat scripts/video/narration.txt)" \
   --voice en-AU-WilliamNeural \
   --write-media scripts/video/narration-pro.mp3
 ```
+
+**Fallback logic:** If ElevenLabs MCP is not configured or the tool call fails, automatically use edge-tts instead. Do not ask the user -- just fall back and note which method was used.
 
 Check duration: `ffprobe -v quiet -show_entries format=duration -of csv=p=0 scripts/video/narration-pro.mp3`
 

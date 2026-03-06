@@ -52,12 +52,36 @@ Claude will walk you through the full pipeline -- analyzing your app, collecting
 - **FFmpeg** -- `brew install ffmpeg` (macOS) or `apt install ffmpeg` (Linux)
 - **A running web app** to record
 
-### Optional Dependencies
+### Optional: ElevenLabs (High-Quality Narration)
 
-- **ElevenLabs MCP** -- for high-quality AI narration (free alternative: `edge-tts`)
-- **Composio YouTube MCP** -- for direct YouTube upload (free alternative: manual upload)
+The skill automatically falls back to `edge-tts` (free, no key needed) if ElevenLabs is not configured. To enable ElevenLabs for premium voice quality:
 
-No API keys are required for the core pipeline. ElevenLabs and YouTube upload are optional enhancements.
+1. Get an API key from [elevenlabs.io](https://elevenlabs.io) (free tier available)
+2. Add the ElevenLabs MCP server to your Claude Code config (`~/.claude/settings.json`):
+
+```json
+{
+  "mcpServers": {
+    "elevenlabs": {
+      "command": "npx",
+      "args": ["-y", "@anthropic-ai/elevenlabs-mcp-server"],
+      "env": {
+        "ELEVENLABS_API_KEY": "your-api-key-here"
+      }
+    }
+  }
+}
+```
+
+3. Restart Claude Code -- the skill will automatically use ElevenLabs when available
+
+### Optional: Composio YouTube (Direct Upload)
+
+For direct YouTube upload from the pipeline, configure the [Composio YouTube MCP](https://docs.composio.dev). Without it, you can manually upload the output video.
+
+### No Keys Required for Core Pipeline
+
+Playwright, FFmpeg, and edge-tts are all free and open-source. The core video pipeline works without any API keys.
 
 ## Contributing
 
