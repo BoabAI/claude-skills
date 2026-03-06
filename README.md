@@ -32,6 +32,16 @@ No API keys required for the core pipeline. See [Optional Enhancements](#optiona
 
 Works in CLI, VS Code, and JetBrains -- same commands everywhere.
 
+### Setup
+
+Run the interactive setup script to check prerequisites and configure optional services:
+
+```bash
+bash ~/.claude/plugins/*/explainer-video/setup.sh
+```
+
+This checks for FFmpeg, Playwright, and edge-tts, then optionally configures ElevenLabs API key and Composio YouTube integration.
+
 ### Use
 
 ```

@@ -11,11 +11,19 @@ allowed-tools: Bash, Read, Write, Edit, Grep, Glob, Agent
 
 Generate a professional branded marketing video for any web application. The pipeline records a live browser demo, overlays branded slides, adds professional narration, and assembles everything with FFmpeg.
 
-## Prerequisites
+## Setup
+
+Run the interactive setup script to check prerequisites and configure optional services (ElevenLabs, YouTube upload):
+
+```bash
+bash ~/.claude/plugins/*/explainer-video/setup.sh
+```
+
+Or check manually:
 
 - **Playwright** (`bun add -d playwright && bunx playwright install chromium`)
 - **FFmpeg** (`brew install ffmpeg`)
-- **ElevenLabs MCP** or **edge-tts** for narration
+- **ElevenLabs MCP** or **edge-tts** for narration (setup script configures this)
 - A running web app to record
 
 ## Architecture Note
