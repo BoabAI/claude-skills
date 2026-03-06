@@ -34,6 +34,27 @@ The recorded app may be **fully client-side** — all processing happens in the 
 
 Execute each phase in order. All output goes to `scripts/video/` in the project.
 
+### Phase 0: Setup Check (auto, first run only)
+
+Before starting, silently check if prerequisites are installed by running these commands:
+
+```bash
+command -v ffmpeg && echo "ffmpeg: ok" || echo "ffmpeg: MISSING"
+command -v edge-tts && echo "edge-tts: ok" || echo "edge-tts: MISSING"
+bunx playwright --version 2>/dev/null && echo "playwright: ok" || echo "playwright: MISSING"
+```
+
+Also check if ElevenLabs MCP is available by attempting `mcp__elevenlabs__list_voices`. If it fails or is not available, note that edge-tts will be used instead.
+
+**If anything is missing**, show the user what's needed and offer to install it:
+- FFmpeg: `brew install ffmpeg` (macOS) or `apt install ffmpeg` (Linux)
+- Playwright: `bun add -d playwright && bunx playwright install chromium`
+- edge-tts: `pip install edge-tts`
+
+**If ElevenLabs is not configured**, ask the user: *"Do you have an ElevenLabs API key for premium narration? (If not, I'll use edge-tts -- it's free and works great.)"* If they provide a key, add the MCP server config to `~/.claude/settings.json` and tell them to restart Claude Code after the video is done to activate it for next time. For this session, use edge-tts.
+
+**If everything is OK**, proceed silently to Phase 1 without printing anything.
+
 ### Phase 1: Analyze the App
 
 1. Read `package.json`, `README.md`, and the main page component
