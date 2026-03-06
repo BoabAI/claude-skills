@@ -26,15 +26,21 @@ Production-tested [Claude Code](https://docs.anthropic.com/en/docs/claude-code) 
 2. Type `/plugin marketplace add BoabAI/claude-skills`
 3. Type `/plugin install explainer-video@boabai-skills`
 
+### Claude Cowork
+
+Claude Cowork orchestrates Claude Code agents under the hood, so installed skills are available automatically. Install the plugin in Claude Code first (see above), then any Cowork agent that spawns a Claude Code session will have access to the skill.
+
+Alternatively, paste the contents of `SKILL.md` directly into your Cowork task instructions -- Cowork passes these to the Claude Code agent as context, so the skill works even without the plugin system installed.
+
 ### Claude Desktop
 
-Claude Desktop doesn't natively support Claude Code skills/plugins. To use these skills with Claude Desktop:
+Claude Desktop doesn't support Claude Code skills/plugins natively. To use these skills:
 
-1. **Copy the skill prompt manually** -- open the `SKILL.md` file from this repo and paste its contents into your Claude Desktop project instructions or system prompt
-2. **Reference files** -- copy the `references/` and `assets/` directories into your project so Claude Desktop can read them when you reference them in conversation
+1. **Copy the skill prompt** -- open the `SKILL.md` file from this repo and paste its contents into your Claude Desktop project instructions or system prompt
+2. **Reference files** -- copy the `references/` and `assets/` directories into your project so Claude Desktop can read them in conversation
 3. **Invoke manually** -- instead of `/explainer-video`, describe what you want: *"Follow the explainer video pipeline to create a marketing video for my app"*
 
-> **Note:** Claude Desktop lacks Bash tool access and MCP tool orchestration that Claude Code provides. Some pipeline phases (FFmpeg assembly, Playwright recording) will need to be run manually in your terminal based on Claude Desktop's generated scripts.
+> **Note:** Claude Desktop lacks Bash tool access and MCP tool orchestration. Some pipeline phases (FFmpeg assembly, Playwright recording) will need to be run manually in your terminal based on the scripts Claude Desktop generates.
 
 ## Usage
 
