@@ -113,13 +113,13 @@ export const Logo: React.FC<LogoProps> = ({ height, delay = 0 }) => {
 
 ### Device Frame for Screenshot Carousel
 
-Wraps screenshot content in a device mockup. The frame's visual style (colors, shadows, border radius, top-bar design) should match the overall creative direction — dark chrome for dark themes, light for light, etc.
+Wrap screenshot content in a device mockup only when the frame adds clarity. The frame's visual style (colors, shadows, border radius, top-bar design) should match the overall creative direction — dark chrome for dark themes, light for light, etc. For tight proof crops or high-impact result shots, a full-bleed treatment can be stronger than showing browser chrome.
 
 The primary techniques for demo enhancement are:
-1. **Caption overlays** — animated labels that narrate what's happening on screen
-2. **Animated URL bar** — the URL text changes as the carousel advances through shots
+1. **Caption overlays** — editorial support that explains why the viewer should care
+2. **Animated URL bar** — optional; use only when it helps orient the viewer
 3. **Shot-specific camera choreography** — each screenshot gets its own scale, drift, and focal direction instead of the same Ken Burns move every time
-4. **Optional cursor/highlight overlays** — use these only when they help the viewer understand the narrated focal point
+4. **Optional cursor cues** — use these only when they help the viewer understand the narrated focal point
 
 #### DeviceFrame
 
@@ -207,24 +207,42 @@ export const DeviceFrame: React.FC<DeviceFrameProps> = ({ children, delay = 0, t
 };
 ```
 
+#### Shot archetypes
+
+Use these as the default demo vocabulary:
+
+1. **`establish`** — shows the overall interface or page state quickly
+2. **`push-in`** — starts wider, then moves closer to the important area
+3. **`detail-crop`** — drops browser framing and focuses on proof
+4. **`split-proof`** — combines two supporting visuals in one beat
+5. **`result-state`** — lands on the payoff, outcome, or completed action
+
 #### ScreenshotSlide
 
-Single screenshot with basic Ken Burns drift (scale 1.0 → 1.04, x drift -8px). Uses `<Img>` from `remotion`.
-This is the minimum viable pattern. For professional demos, prefer a shot-specific choreography component that reads camera metadata from `tour-plan.json`.
+Single screenshot with directed motion. Uses `<Img>` from `remotion`. This is the minimum viable pattern. For professional demos, prefer a shot-specific choreography component that reads camera metadata and `shotArchetype` from `tour-plan.json`.
 
 ```tsx
 import { Img, staticFile, useCurrentFrame, useVideoConfig, interpolate } from "remotion";
 
 interface ScreenshotSlideProps {
   file: string;
+  shotArchetype?: "establish" | "push-in" | "detail-crop" | "split-proof" | "result-state";
 }
 
-export const ScreenshotSlide: React.FC<ScreenshotSlideProps> = ({ file }) => {
+export const ScreenshotSlide: React.FC<ScreenshotSlideProps> = ({ file, shotArchetype = "establish" }) => {
   const frame = useCurrentFrame();
   const { durationInFrames } = useVideoConfig();
 
-  const scale = interpolate(frame, [0, durationInFrames], [1.0, 1.04], { extrapolateRight: "clamp" });
-  const driftX = interpolate(frame, [0, durationInFrames], [0, -8], { extrapolateRight: "clamp" });
+  const motion = {
+    establish: { startScale: 1.0, endScale: 1.03, startX: 0, endX: -6 },
+    "push-in": { startScale: 1.01, endScale: 1.08, startX: 8, endX: -18 },
+    "detail-crop": { startScale: 1.08, endScale: 1.12, startX: 0, endX: -10 },
+    "split-proof": { startScale: 1.02, endScale: 1.05, startX: -4, endX: 6 },
+    "result-state": { startScale: 1.04, endScale: 1.06, startX: 0, endX: 0 },
+  }[shotArchetype];
+
+  const scale = interpolate(frame, [0, durationInFrames], [motion.startScale, motion.endScale], { extrapolateRight: "clamp" });
+  const driftX = interpolate(frame, [0, durationInFrames], [motion.startX, motion.endX], { extrapolateRight: "clamp" });
 
   return (
     <div style={{ width: "100%", height: "100%", overflow: "hidden" }}>
@@ -245,7 +263,7 @@ export const ScreenshotSlide: React.FC<ScreenshotSlideProps> = ({ file }) => {
 
 Sequences screenshots for the demo section.
 
-Important: if narration sync is strict, avoid letting overlapping transitions silently shorten a shot's usable time. Prefer `Series` plus shot-level entry/exit animation when exact timing matters more than fancy cross-scene overlap.
+Important: if narration sync is strict, avoid letting overlapping transitions silently shorten a shot's usable time. Prefer `Series` plus shot-level entry/exit animation when exact timing matters more than fancy cross-scene overlap. Internal demo transitions should usually be fast: **6–10 frames**.
 
 ```tsx
 import { TransitionSeries } from "@remotion/transitions";
@@ -258,9 +276,10 @@ interface Shot {
   label: string;
   url: string;
   durationInFrames: number;
+  shotArchetype?: "establish" | "push-in" | "detail-crop" | "split-proof" | "result-state";
 }
 
-const TRANSITION_FRAMES = 15;
+const TRANSITION_FRAMES = 8;
 
 const transitions = [fade(), slide({ direction: "from-right" }), fade(), slide({ direction: "from-left" })];
 
@@ -275,7 +294,7 @@ export const ScreenshotCarousel: React.FC<{ shots: Shot[] }> = ({ shots }) => (
           />
         )}
         <TransitionSeries.Sequence key={i} durationInFrames={shot.durationInFrames}>
-          <ScreenshotSlide file={shot.file} />
+          <ScreenshotSlide file={shot.file} shotArchetype={shot.shotArchetype} />
         </TransitionSeries.Sequence>
       </>
     ))}
@@ -285,553 +304,24 @@ export const ScreenshotCarousel: React.FC<{ shots: Shot[] }> = ({ shots }) => (
 
 ### Demo Captions
 
-Animated caption labels that appear at the bottom-left of the device frame area. Each caption corresponds to a tour step and uses spring animation for entrance, holds for the step duration, then fades out. This is the **primary** technique for guiding the viewer through a demo.
-Good captions do more than repeat the section name. They should explain what the viewer is supposed to notice in the current shot.
+Animated caption labels that appear at the bottom-left of the device frame area. Each caption corresponds to a beat and uses spring animation for entrance, holds for the step duration, then fades out. This is the **primary** technique for guiding the viewer through a demo.
+Good captions do more than repeat the section name. They should explain what the viewer is supposed to notice and why it matters.
 
 ```tsx
-import { AbsoluteFill, useCurrentFrame, useVideoConfig, spring, interpolate } from "remotion";
-import { branding } from "../lib/branding";
-
-interface TourStep {
-  time: number;
-  url: string;
-  label: string;
-}
-
-interface DemoCaptionsProps {
-  tourPlan: TourStep[];
-}
-
-export const DemoCaptions: React.FC<DemoCaptionsProps> = ({ tourPlan }) => {
-  const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
-  const { colors } = branding;
-
-  return (
-    <AbsoluteFill style={{ pointerEvents: "none" }}>
-      {tourPlan.map((step, i) => {
-        const startFrame = Math.round(step.time * fps);
-        const nextStart = i < tourPlan.length - 1
-          ? Math.round(tourPlan[i + 1].time * fps)
-          : startFrame + 5 * fps;
-        const holdDuration = nextStart - startFrame;
-        const localFrame = frame - startFrame;
-
-        if (localFrame < 0 || localFrame > holdDuration) return null;
-
-        const enter = spring({
-          frame: localFrame,
-          fps,
-          config: { damping: 14, mass: 0.8, stiffness: 100 },
-        });
-        const exit = localFrame > holdDuration - 8
-          ? interpolate(localFrame, [holdDuration - 8, holdDuration], [1, 0], {
-              extrapolateLeft: "clamp",
-              extrapolateRight: "clamp",
-            })
-          : 1;
-        const y = interpolate(enter, [0, 1], [12, 0]);
-
-        return (
-          <div
-            key={i}
-            style={{
-              position: "absolute",
-              bottom: 90,
-              left: 160,
-              opacity: enter * exit,
-              transform: `translateY(${y}px)`,
-              background: `${colors.accent}DD`,
-              backdropFilter: "blur(12px)",
-              WebkitBackdropFilter: "blur(12px)",
-              color: colors.textPrimary,
-              fontSize: 20,
-              fontWeight: 600,
-              fontFamily: branding.fonts?.body ?? "system-ui",
-              padding: "10px 24px",
-              borderRadius: 100,
-              whiteSpace: "nowrap",
-            }}
-          >
-            {step.label}
-          </div>
-        );
-      })}
-    </AbsoluteFill>
-  );
-};
+// No callout overlay component. Use captions, camera movement, and cleaner capture framing instead.
 ```
 
-#### DemoScene composition example
-
-**CRITICAL: Screenshot durations come from measured audio in `narration-timing.json`.** Import `narration-timing.json` and `tour-plan.json`. The timing file has the measured duration for each `demo-*` segment; the tour plan has the screenshot file paths, copy, and optional overlay metadata. Do NOT use arbitrary durations or estimated timestamps.
-
-When segments are concatenated with silence padding, prefer using the timing windows from cumulative offsets so the visual shot covers the full narrated window, not just the raw speech length.
-
-```tsx
-import { AbsoluteFill } from "remotion";
-import { AnimatedBackground } from "../components/AnimatedBackground";
-import { DeviceFrame } from "../components/DeviceFrame";
-import { ScreenshotCarousel } from "../components/ScreenshotCarousel";
-import { DemoCaptions } from "../components/DemoCaptions";
-import { FilmOverlay } from "../components/FilmOverlay";
-import narrationTiming from "../../../narration-timing.json";
-import tourPlanRaw from "../../../tour-plan.json";
-
-const FPS = 30;
-
-const demoSegments = narrationTiming.segments.filter((s: any) =>
-  s.sceneId.startsWith("demo-"),
-);
-
-const shots = demoSegments.map((seg: any) => {
-  const tourEntry = tourPlanRaw.find((t: any) => t.id === seg.screenshotId);
-  return {
-    file: tourEntry?.file ?? `screenshots/${seg.screenshotId}.png`,
-    label: tourEntry?.label ?? seg.sceneId,
-    url: tourEntry?.url ?? "",
-    durationInFrames: Math.ceil(seg.duration * FPS),
-  };
-});
-
-export const DemoScene: React.FC = () => (
-  <AbsoluteFill>
-    <AnimatedBackground variant="deep" />
-    <DeviceFrame tourPlan={shots}>
-      <ScreenshotCarousel shots={shots} />
-    </DeviceFrame>
-    <DemoCaptions tourPlan={shots} />
-    <FilmOverlay />
-  </AbsoluteFill>
-);
-```
-
-Because `seg.duration` is the **measured** audio length of the corresponding narration segment, each screenshot displays for exactly as long as the narrator talks about it — guaranteed sync with zero drift.
-
-### Animated Text
-
-Reusable text animation component. Font family and colors come from branding config:
-
-```tsx
-import { useCurrentFrame, useVideoConfig, spring, interpolate } from "remotion";
-import { branding } from "../lib/branding";
-
-interface AnimatedTextProps {
-  text: string;
-  mode: "typewriter" | "fadeUp" | "stagger";
-  fontSize?: number;
-  fontWeight?: number;
-  color?: string;
-  delay?: number;
-  charFrames?: number;
-}
-
-export const AnimatedText: React.FC<AnimatedTextProps> = ({
-  text,
-  mode,
-  fontSize = 48,
-  fontWeight = 600,
-  color,
-  delay = 0,
-  charFrames = 2,
-}) => {
-  const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
-  const adjustedFrame = frame - delay;
-  const textColor = color ?? branding.colors.textPrimary;
-
-  if (mode === "typewriter") {
-    const chars = Math.max(0, Math.floor(adjustedFrame / charFrames));
-    const displayed = text.slice(0, chars);
-    const cursorOpacity = interpolate(
-      frame % 16, [0, 8, 16], [1, 0, 1],
-      { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
-    );
-    return (
-      <div style={{ fontSize, fontWeight, color: textColor }}>
-        <span>{displayed}</span>
-        <span style={{ opacity: cursorOpacity }}>|</span>
-      </div>
-    );
-  }
-
-  if (mode === "fadeUp") {
-    const progress = spring({ frame, fps, delay, config: { damping: 200 } });
-    const y = interpolate(progress, [0, 1], [30, 0]);
-    return (
-      <div style={{ fontSize, fontWeight, color: textColor, opacity: progress, transform: `translateY(${y}px)` }}>
-        {text}
-      </div>
-    );
-  }
-
-  if (mode === "stagger") {
-    const words = text.split(" ");
-    return (
-      <div style={{ fontSize, fontWeight, color: textColor, display: "flex", gap: "0.3em", flexWrap: "wrap" }}>
-        {words.map((word, i) => {
-          const wordDelay = delay + i * 4;
-          const progress = spring({ frame, fps, delay: wordDelay, config: { damping: 200 } });
-          return (
-            <span key={i} style={{ opacity: progress, transform: `translateY(${interpolate(progress, [0, 1], [20, 0])}px)` }}>
-              {word}
-            </span>
-          );
-        })}
-      </div>
-    );
-  }
-
-  return <div style={{ fontSize, fontWeight, color: textColor }}>{text}</div>;
-};
-```
-
-## Scene Animation Patterns
-
-These are pure animation patterns. The visual treatment (colors, icons, spacing, layout) is determined by the creative direction.
-
-### Staggered List (Problem / Benefits)
-
-Items appear one at a time with spring animations. The marker style, colors, and layout are designed per creative direction:
-
-```tsx
-const STAGGER_DELAY = 7;
-
-{items.map((item, i) => {
-  const itemDelay = headerDelay + i * STAGGER_DELAY;
-  const progress = spring({ frame, fps, delay: itemDelay, config: { damping: 200 } });
-  const x = interpolate(progress, [0, 1], [-40, 0]);
-
-  return (
-    <div
-      key={i}
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 18,
-        opacity: progress,
-        transform: `translateX(${x}px)`,
-        // Font size, padding, colors from branding
-      }}
-    >
-      {/* Marker component — designed per creative direction */}
-      <span>{item}</span>
-    </div>
-  );
-})}
-```
-
-### Counting Stat
-
-```tsx
-const progress = interpolate(frame, [0, 2 * fps], [0, 1], {
-  extrapolateRight: "clamp",
-  easing: Easing.out(Easing.quad),
-});
-
-const displayNumber = Math.round(progress * targetNumber);
-const formatted = displayNumber.toLocaleString();
-```
-
-### Border/Path Drawing
-
-Use `@remotion/paths` to animate any SVG path. The path shape, stroke color, and width come from the creative direction:
-
-```tsx
-import { evolvePath } from "@remotion/paths";
-
-const progress = spring({ frame, fps, config: { damping: 200 } });
-const { strokeDasharray, strokeDashoffset } = evolvePath(progress, pathDefinition);
-
-<svg width={1920} height={1080} style={{ position: "absolute", inset: 0 }}>
-  <path
-    d={pathDefinition}
-    fill="none"
-    stroke={branding.colors.accent}
-    strokeWidth={1}
-    strokeDasharray={strokeDasharray}
-    strokeDashoffset={strokeDashoffset}
-  />
-</svg>
-```
-
-### Pulsing Element
-
-```tsx
-const pulse = interpolate(
-  frame % (fps * 2),
-  [0, fps, fps * 2],
-  [0.7, 1, 0.7],
-  { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
-);
-
-<div style={{ opacity: pulse }}>{content}</div>
-```
-
-### Scale Entrance with Spring
-
-```tsx
-const scale = spring({
-  frame,
-  fps,
-  delay,
-  config: { damping: 200 },
-});
-
-<div style={{ transform: `scale(${scale})` }}>{content}</div>
-```
-
-### Slide-In from Direction
-
-```tsx
-const progress = spring({ frame, fps, delay, config: { damping: 200 } });
-const x = interpolate(progress, [0, 1], [direction === "left" ? -100 : 100, 0]);
-
-<div style={{ opacity: progress, transform: `translateX(${x}px)` }}>{content}</div>
-```
-
----
-
-## Advanced Component Patterns
-
-These patterns add professional polish. Use them to break out of the "text on gradient" look. See [video-design-principles.md](${CLAUDE_SKILL_DIR}/references/video-design-principles.md) for when and why to use each.
-
-### Floating Decorative Elements
-
-Blurred circles drifting at different speeds and depths. Adds ambient visual interest to any scene. Place between the background and content layers.
-
-```tsx
-import { AbsoluteFill, useCurrentFrame, interpolate } from "remotion";
-
-interface FloatingOrb {
-  x: number; y: number; size: number;
-  speedX: number; speedY: number;
-  opacity: number; color: string;
-}
-
-export const FloatingElements: React.FC<{ orbs: FloatingOrb[] }> = ({ orbs }) => {
-  const frame = useCurrentFrame();
-
-  return (
-    <AbsoluteFill style={{ overflow: "hidden" }}>
-      {orbs.map((orb, i) => {
-        const x = orb.x + interpolate(frame, [0, 600], [0, orb.speedX], { extrapolateRight: "extend" });
-        const y = orb.y + interpolate(frame, [0, 600], [0, orb.speedY], { extrapolateRight: "extend" });
-        return (
-          <div
-            key={i}
-            style={{
-              position: "absolute",
-              left: `${x}%`,
-              top: `${y}%`,
-              width: orb.size,
-              height: orb.size,
-              borderRadius: "50%",
-              background: orb.color,
-              filter: `blur(${orb.size * 0.4}px)`,
-              opacity: orb.opacity,
-              transform: "translate(-50%, -50%)",
-            }}
-          />
-        );
-      })}
-    </AbsoluteFill>
-  );
-};
-
-// Usage — vary sizes, speeds, and opacity per scene:
-<FloatingElements
-  orbs={[
-    { x: 15, y: 25, size: 120, speedX: 8, speedY: -5, opacity: 0.15, color: colors.accent },
-    { x: 80, y: 70, size: 90, speedX: -6, speedY: 4, opacity: 0.1, color: colors.accentSecondary },
-    { x: 50, y: 10, size: 60, speedX: 3, speedY: 7, opacity: 0.08, color: colors.accent },
-  ]}
-/>
-```
-
-### Film Overlay (Grain + Vignette + Light Leak)
-
-Professional film-quality overlay. Apply on top of every scene.
-
-```tsx
-import { AbsoluteFill, useCurrentFrame } from "remotion";
-import { LightLeak } from "@remotion/light-leaks";
-
-export const FilmOverlay: React.FC<{ showLightLeak?: boolean; lightLeakSeed?: number }> = ({
-  showLightLeak = false,
-  lightLeakSeed = 0,
-}) => {
-  const frame = useCurrentFrame();
-  const grainSeed = Math.floor(frame / 2);
-
-  return (
-    <AbsoluteFill style={{ pointerEvents: "none" }}>
-      {/* Grain */}
-      <div
-        style={{
-          position: "absolute", inset: 0, opacity: 0.035,
-          backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' seed='${grainSeed}' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`,
-          backgroundSize: "200px 200px",
-        }}
-      />
-      {/* Vignette */}
-      <div
-        style={{
-          position: "absolute", inset: 0,
-          background: "radial-gradient(ellipse 75% 70% at 50% 50%, transparent 0%, rgba(0,0,0,0.3) 100%)",
-        }}
-      />
-      {showLightLeak && <LightLeak seed={lightLeakSeed} />}
-    </AbsoluteFill>
-  );
-};
-```
-
-### Glassmorphism / Frosted Card
-
-Content container with frosted glass effect. Use to break the "text floating on gradient" look — especially for Problem, Benefits, or Stats scenes.
-
-```tsx
-import { spring, useCurrentFrame, useVideoConfig, interpolate } from "remotion";
-
-interface GlassCardProps {
-  children: React.ReactNode;
-  delay?: number;
-  maxWidth?: number;
-}
-
-export const GlassCard: React.FC<GlassCardProps> = ({ children, delay = 0, maxWidth = 800 }) => {
-  const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
-
-  const entrance = spring({ frame, fps, delay, config: { damping: 15, mass: 1, stiffness: 80 } });
-  const y = interpolate(entrance, [0, 1], [40, 0]);
-
-  return (
-    <div
-      style={{
-        background: "rgba(255,255,255,0.06)",
-        backdropFilter: "blur(40px)",
-        WebkitBackdropFilter: "blur(40px)",
-        borderRadius: 20,
-        border: "1px solid rgba(255,255,255,0.1)",
-        padding: "48px 64px",
-        maxWidth,
-        opacity: entrance,
-        transform: `translateY(${y}px)`,
-      }}
-    >
-      {children}
-    </div>
-  );
-};
-```
-
-### Blur-In Text Reveal
-
-Text starts blurred and invisible, then sharpens into focus. Cinematic, premium feel.
-
-```tsx
-const progress = spring({ frame, fps, delay, config: { damping: 200 } });
-const blur = interpolate(progress, [0, 1], [20, 0]);
-const opacity = interpolate(progress, [0, 0.5, 1], [0, 0.8, 1]);
-
-<div style={{ fontSize, fontWeight, color: textColor, opacity, filter: `blur(${blur}px)` }}>
-  {text}
-</div>
-```
-
-### Masked Text Reveal
-
-Text revealed by an animated clip-path sweeping left to right. Clean editorial feel.
-
-```tsx
-const progress = spring({ frame, fps, delay, config: { damping: 200 } });
-const clipX = interpolate(progress, [0, 1], [0, 100]);
-
-<div style={{ fontSize, fontWeight, color: textColor, clipPath: `inset(0 ${100 - clipX}% 0 0)` }}>
-  {text}
-</div>
-```
-
-### Gradient Shimmer Text
-
-Animated gradient that sweeps across text. Attention-grabbing for hero headlines.
-
-```tsx
-const shimmerX = interpolate(frame, [delay, delay + 40], [-100, 200], {
-  extrapolateLeft: "clamp",
-  extrapolateRight: "clamp",
-});
-
-<div
-  style={{
-    fontSize, fontWeight,
-    background: `linear-gradient(90deg, ${colors.textPrimary} 0%, ${colors.accent} 45%, ${colors.textPrimary} 55%, ${colors.textPrimary} 100%)`,
-    backgroundSize: "200% 100%",
-    backgroundPosition: `${shimmerX}% 0`,
-    WebkitBackgroundClip: "text",
-    WebkitTextFillColor: "transparent",
-    backgroundClip: "text",
-  }}
->
-  {text}
-</div>
-```
-
-### Demo Callout Overlay
-
-> **Callout overlays are optional.** The primary technique for demo enhancement is scene captions (see DeviceFrame section above). Use callouts sparingly when the screenshot carousel narration specifically references a UI element that needs a visual highlight box.
-> When possible, the callout geometry should come from capture-time selector measurements stored in `tour-plan.json`, not hand-authored guesses.
-
-Animated highlight rectangles that appear over the device frame to draw attention to specific UI elements. Scale in with spring, hold, then fade out.
-
-```tsx
-import { AbsoluteFill, useCurrentFrame, useVideoConfig, spring, interpolate } from "remotion";
-import { branding } from "../lib/branding";
-
-interface Callout {
-  frame: number;
-  duration: number;
-  x: number; y: number;
-  width: number; height: number;
-}
-
-export const CalloutOverlay: React.FC<{ callouts: Callout[] }> = ({ callouts }) => {
-  const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
-
-  return (
-    <AbsoluteFill style={{ pointerEvents: "none" }}>
-      {callouts.map((c, i) => {
-        const localFrame = frame - c.frame;
-        if (localFrame < 0 || localFrame > c.duration) return null;
-
-        const enter = spring({ frame: localFrame, fps, config: { damping: 15 } });
-        const exit = localFrame > c.duration - 10
-          ? interpolate(localFrame, [c.duration - 10, c.duration], [1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" })
-          : 1;
-
-        return (
-          <div
-            key={i}
-            style={{
-              position: "absolute",
-              left: c.x, top: c.y,
-              width: c.width, height: c.height,
-              border: `2px solid ${branding.colors.accent}`,
-              borderRadius: 8,
-              opacity: enter * exit,
-              transform: `scale(${enter})`,
-              boxShadow: `0 0 20px ${branding.colors.accent}44`,
-            }}
-          />
-        );
-      })}
-    </AbsoluteFill>
-  );
-};
-```
+Bad captions:
+- `Dashboard`
+- `Reporting page`
+- `Automation features`
+
+Better captions:
+- `Spot delivery risk before it spreads`
+- `Turn raw activity into a decision`
+- `Automate the follow-up work away`
+
+If a narration segment lasts longer than one visual beat, let the caption progress once or twice rather than holding identical copy for the full duration.
 
 ### Accent Line Draw
 

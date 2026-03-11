@@ -140,66 +140,77 @@ async function dismissOverlays(page: Page) {
 }
 ```
 
-### Phase B: Tour Planning
+### Phase B: Beat Planning
 
-Based on discovery results, plan a **3–5 page tour** with a narrative arc. Prefer states that feel like a guided product walkthrough, not passive top-of-page screenshots:
+Based on discovery results, plan a **message-driven demo**, not a page tour. Build around the moments that sell the product story:
 
-1. **Landing / Hero** — the first impression, headline, hero section
-2. **Primary feature page** — the core value proposition
-3. **Secondary feature or interactive demo** — depth, interactivity
-4. **Social proof / Pricing** — testimonials, pricing table, logos
-5. **(Optional) CTA / Sign-up** — final call to action
+1. **Hero claim** — what promise should land first?
+2. **Proof moment** — what screen proves that promise quickly?
+3. **Workflow moment** — what product state shows the work actually happening?
+4. **Outcome moment** — what result, visibility, or speedup does the user get?
+5. **CTA moment** — what closes the story?
 
-The plan specifies what **screenshots** to take per page, plus the metadata Remotion will need to animate those screenshots in a more directed way:
+Most strong demos use **4–8 message moments** captured as **8–14 visual beats**. A single narration segment can justify multiple visual beats if the spoken idea is longer than one shot can carry.
+
+The plan specifies what **screenshots or crops** to take, plus the metadata Remotion will need to animate those screenshots in a more directed way:
 
 ```typescript
-interface TourStop {
-  label: string;
+interface MessageMoment {
+  beatId: string;
+  message: string;
   url: string;
-  screenshots: {
-    id: string;        // filename: "01-homepage-hero", "02-homepage-features"
-    action?: string;   // what to do before capturing: "scroll:600", "click:.tab-2", "hover:.card"
+  shots: {
+    id: string;               // filename: "01-hero-establish", "02-proof-crop"
+    shotArchetype: "establish" | "push-in" | "detail-crop" | "split-proof" | "result-state";
+    action?: string;          // what to do before capturing: "scroll:600", "click:.tab-2", "hover:.card"
     description: string;
     eyebrow?: string;
     headline?: string;
     subheadline?: string;
-    selector?: string; // primary area the shot should focus on
-    highlightSelectors?: { selector: string; label?: string }[];
+    selector?: string;        // primary area the shot should focus on
+    browserFrame?: boolean;   // set false for full-bleed crops or proof composites
   }[];
 }
 
-const tourPlan: TourStop[] = [
+const tourPlan: MessageMoment[] = [
   {
-    label: "Homepage",
+    beatId: "hero-claim",
+    message: "Show the core promise immediately",
     url: "https://example.com",
-    screenshots: [
+    shots: [
       {
-        id: "01-homepage-hero",
+        id: "01-hero-establish",
+        shotArchetype: "establish",
         description: "Landing hero section",
         eyebrow: "Overview",
         headline: "Show the product promise first",
         subheadline: "Use the real hero state, not a blank loading shell",
         selector: "main h1",
-        highlightSelectors: [{ selector: "main h1", label: "Core message" }],
+        browserFrame: true,
       },
       {
-        id: "02-homepage-features",
+        id: "02-hero-proof",
+        shotArchetype: "detail-crop",
         action: "scroll:800",
-        description: "Feature grid",
+        description: "Feature proof close-up",
+        eyebrow: "Proof",
+        headline: "Move from promise into evidence",
+        subheadline: "Crop tighter if the page layout wastes space",
         selector: "section.features",
-        highlightSelectors: [{ selector: "section.features [data-feature-card], section.features article", label: "Feature area" }],
+        browserFrame: false,
       },
     ],
   },
   {
-    label: "Features",
+    beatId: "workflow-moment",
+    message: "Show the product in motion",
     url: "https://example.com/features",
-    screenshots: [
-      { id: "03-features-overview", description: "Features overview" },
-      { id: "04-features-detail", action: "click:[role='tab']:nth-child(2)", description: "Feature detail tab" },
+    shots: [
+      { id: "03-workflow-establish", shotArchetype: "push-in", description: "Workflow overview", browserFrame: true },
+      { id: "04-workflow-result", shotArchetype: "result-state", action: "click:[role='tab']:nth-child(2)", description: "Resulting state after interaction", browserFrame: false },
     ],
   },
-  // ... 3-5 stops
+  // ... 4-8 message moments
 ];
 ```
 
@@ -209,44 +220,22 @@ const tourPlan: TourStop[] = [
 interface CapturedShot {
   id: string;
   file: string;
-  label: string;
+  beatId: string;
   url: string;
   description: string;
+  shotArchetype: "establish" | "push-in" | "detail-crop" | "split-proof" | "result-state";
   eyebrow?: string;
   headline?: string;
   subheadline?: string;
-  emphasis?: {
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-    label?: string;
-  }[];
+  browserFrame?: boolean;
 }
 
 const captured: CapturedShot[] = [];
 
-async function getNormalizedRect(page: Page, selector: string) {
-  return page.evaluate((sel) => {
-    const el = document.querySelector(sel);
-    if (!el) return null;
-    const rect = el.getBoundingClientRect();
-    const width = window.innerWidth;
-    const height = window.innerHeight;
-    if (rect.width <= 0 || rect.height <= 0 || width <= 0 || height <= 0) return null;
-    return {
-      x: Number(((rect.left / width) * 100).toFixed(2)),
-      y: Number(((rect.top / height) * 100).toFixed(2)),
-      width: Number(((rect.width / width) * 100).toFixed(2)),
-      height: Number(((rect.height / height) * 100).toFixed(2)),
-    };
-  }, selector);
-}
-
 async function captureScreenshot(
   page: Page,
-  shot: TourStop["screenshots"][number],
-  label: string,
+  shot: MessageMoment["shots"][number],
+  beatId: string,
 ) {
   const { id, description } = shot;
   const file = `${id}.png`;
@@ -279,47 +268,37 @@ async function captureScreenshot(
     await page.screenshot({ path: filePath, type: "png" });
   }
 
-  const emphasis = [];
-  for (const target of shot.highlightSelectors ?? []) {
-    const rect = await getNormalizedRect(page, target.selector);
-    if (rect) {
-      emphasis.push({
-        ...rect,
-        label: target.label,
-      });
-    }
-  }
-
   captured.push({
     id,
     file: `screenshots/${file}`,
-    label,
+    beatId,
     url: page.url().replace(/^https?:\/\//, "").replace(/\/$/, ""),
     description,
+    shotArchetype: shot.shotArchetype,
     eyebrow: shot.eyebrow,
     headline: shot.headline,
     subheadline: shot.subheadline,
-    emphasis,
+    browserFrame: shot.browserFrame,
   });
   console.log(`Captured: ${id} — ${description} (${(statSync(filePath).size / 1024).toFixed(0)}KB)`);
 }
 
 await dismissOverlays(page);
 
-for (const stop of tourPlan) {
+for (const moment of tourPlan) {
   // Use domcontentloaded + manual settle — networkidle can timeout on sites with
   // persistent connections (analytics, websockets, streaming). Fall back gracefully.
-  await page.goto(stop.url, { waitUntil: "domcontentloaded", timeout: 30000 });
+  await page.goto(moment.url, { waitUntil: "domcontentloaded", timeout: 30000 });
   // Wait for the page to have at least one heading or image visible
   await page.waitForSelector("h1, h2, img, svg, [class*='hero']", { timeout: 8000 }).catch(() => {});
   await page.waitForTimeout(2000); // let fonts, images, and animations settle
 
-  for (const shot of stop.screenshots) {
+  for (const shot of moment.shots) {
     if (shot.action) {
       await executeAction(page, shot.action);
       await page.waitForTimeout(800);
     }
-    await captureScreenshot(page, shot, stop.label);
+    await captureScreenshot(page, shot, moment.beatId);
   }
 }
 
@@ -380,33 +359,33 @@ Scrolling uses `behavior: "instant"` not `"smooth"` — since we're taking scree
 - **Verify content before capturing:** Check that the page has visible headings, images, or content. Blank pages produce PNGs under 50KB — detect and retry.
 - For pages with lazy-loaded content, scroll to trigger loading then scroll back before capturing
 - **Always check the PNGs visually** before proceeding to the Remotion render. A blank screenshot wastes an entire render cycle.
-- If a highlight or callout will be shown later, prefer measuring the element during capture instead of manually inventing box coordinates after the screenshot exists.
+- Do not plan highlight boxes or callout rectangles over the screenshot. Use stronger framing, captions, and shot choreography instead.
 - Reject screenshots that are technically valid but compositionally weak: cropped focal content, poor spacing, confusing scroll position, or no clear subject.
+- If a narration beat lasts more than 4–6 seconds, capture a second visual beat for that same message moment.
 
 ---
 
-## Tour Structure by Site Type
+## Beat Structure by Site Type
 
 ### Public Marketing Sites
 
-| # | Screenshot | What to capture |
+| # | Message moment | What to capture |
 |---|-----------|----------------|
-| 1 | Homepage hero | Full viewport after page load |
-| 2 | Homepage features | Scroll to feature section |
-| 3 | Product page | Navigate to main product |
-| 4 | Product detail | Click a tab or scroll to details |
-| 5 | Pricing table | Navigate to pricing |
-| 6 | (Optional) Pricing toggled | Click annual/monthly toggle |
+| 1 | Hero claim | Strong first impression, ideally above the fold |
+| 2 | Proof moment | Tight crop or feature section that validates the claim |
+| 3 | Workflow moment | A real product state, not just marketing copy |
+| 4 | Outcome moment | Result, speed, visibility, automation, or collaboration payoff |
+| 5 | CTA moment | Sign-up, conversion, or brand close |
 
 ### Local Apps
 
-| # | Screenshot | What to capture |
+| # | Message moment | What to capture |
 |---|-----------|----------------|
-| 1 | Landing/Login | Show entry point |
-| 2 | Dashboard | After login, main view |
-| 3 | Core feature | Navigate to main feature |
-| 4 | Feature in action | After an interaction |
-| 5 | Results/Output | The outcome |
+| 1 | Entry | The first meaningful in-product state |
+| 2 | Core workflow | The main action a user takes |
+| 3 | Proof | Detail crop of the feature doing the work |
+| 4 | Result | The output, decision, or saved time |
+| 5 | CTA/extension | Next action, automation, or expansion path |
 
 ---
 
@@ -421,48 +400,44 @@ The script outputs:
   {
     "id": "01-homepage-hero",
     "file": "screenshots/01-homepage-hero.png",
-    "label": "Homepage",
+    "beatId": "hero-claim",
     "url": "example.com",
     "description": "Landing hero section",
+    "shotArchetype": "establish",
     "eyebrow": "Overview",
     "headline": "Lead with the main promise",
-    "subheadline": "Use captions and focus guidance, not a passive hold",
-    "emphasis": [
-      {
-        "x": 12,
-        "y": 16,
-        "width": 44,
-        "height": 18,
-        "label": "Core message"
-      }
-    ]
+    "subheadline": "Use captions and camera guidance, not a passive hold",
+    "browserFrame": true
   },
   {
     "id": "02-homepage-features",
     "file": "screenshots/02-homepage-features.png",
-    "label": "Features",
+    "beatId": "proof-moment",
     "url": "example.com",
     "description": "Feature grid",
+    "shotArchetype": "detail-crop",
     "eyebrow": "Capabilities",
-    "headline": "Shift attention into the feature area"
+    "headline": "Shift attention into the feature area",
+    "browserFrame": false
   }
 ]
 ```
 
 The `tour-plan.json` does NOT include narration timestamps. Screenshot durations are derived from `narration-timing.json` (measured audio), not from estimates.
-It should contain enough metadata for guided motion: caption copy, selector-derived emphasis boxes, and any source selectors that informed the shot.
+It should contain enough metadata for guided motion: caption copy, cursor cues, camera intent, and any source selectors that informed the shot.
 
 ---
 
 ## Timing in Remotion (synced to narration via narration-timing.json)
 
 Since screenshots are static, all timing is controlled in Remotion and **must match the measured narration audio**:
-- Each screenshot's `durationInFrames` is derived from `narration-timing.json`: filter for `demo-*` segments and use `Math.ceil(segment.duration * fps)`
+- Each message moment's base timing comes from `narration-timing.json`: filter for `demo-*` segments and use `Math.ceil(segment.duration * fps)`
 - The `narration-timing.json` file is generated in Phase 4 by running `ffprobe` on each individually-generated TTS segment — these are **measured** durations, not estimates
-- **Do NOT use arbitrary durations** (e.g., "5 seconds per screenshot"). If the narrator talks about a feature for 8.12 seconds, that screenshot must display for exactly 8.12 seconds
-- Transitions between screenshots: 0.5–1s crossfade, slide, or scale (these overlap, so account for them in timing)
-- Ken Burns drift: applied per-screenshot by Remotion
-- Total demo section: 35–45 seconds across 5–8 screenshots
+- **Do NOT use arbitrary durations** (e.g., "5 seconds per screenshot"). If the narrator talks about a feature for 8.12 seconds, that visual sequence must fill that exact 8.12-second window
+- If one narration segment contains multiple visual beats, split that measured window across those beats intentionally
+- Transitions between screenshots: usually 6–10 frames, with longer transitions reserved for major structural shifts
+- Camera choreography should vary by shot archetype, not default to the same Ken Burns move every time
+- Total demo section: 35–45 seconds across 4–8 message moments
 
 ---
 
@@ -474,18 +449,18 @@ Since screenshots are static, all timing is controlled in Remotion and **must ma
 - **Don't rely solely on `networkidle`** — many sites have persistent connections that prevent it from resolving. Use `domcontentloaded` + `waitForSelector` + settle time instead.
 - **Don't use arbitrary or estimated screenshot durations** — derive each screenshot's display time from `narration-timing.json` (measured audio). If narration and visuals are out of sync, the video feels broken.
 - **Don't put narration timestamps in tour-plan.json** — timestamps belong in `narration-timing.json`, which is generated from measured audio. The tour plan only contains screenshot metadata.
-- **Don't capture more than 8 screenshots** — too many makes transitions feel rushed. 5–8 is ideal.
+- **Don't capture more than 14 screenshots** — too many makes transitions feel rushed. 8–14 beats is ideal.
 - **Don't capture fewer than 4 screenshots** — too few and the demo section feels static. Minimum 4 captures.
 - **Don't skip discovery** — always run Phase A to understand the site before planning captures.
 - **Don't skip PNG verification** — always open and visually check screenshots before rendering. One blank screenshot wastes the entire render.
-- **Don't guess overlay coordinates by eye** if a selector can be measured at capture time.
+- **Don't let one unchanged visual state linger for more than 4–6 seconds** unless the moment absolutely earns it.
 - **Don't settle for generic hero-only tours** when the platform has stronger product states to show.
 
 ## Tips
 
 - **Test screenshots first** — open the PNGs and verify they look clean before running the Remotion render
 - **Check for cookie banners** — they ruin screenshots. Always dismiss overlays before capturing.
-- **Multiple captures per page** — take 1–2 screenshots per page at different scroll positions or tab states for variety
+- **Multiple captures per message moment** — take extra beats when the spoken idea needs progression or proof
 - **Name files with sequence numbers** — `01-`, `02-`, etc. so they sort correctly
-- **Measure targets while the DOM is present** — once the shot becomes a PNG, alignment can only rely on whatever metadata you saved during capture
+- **Use optional browser framing intentionally** — keep the chrome when orientation helps, drop it when a tighter crop tells the story better
 - Run: `bun scripts/video/capture-demo.ts`

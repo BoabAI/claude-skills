@@ -4,9 +4,21 @@ Reference for writing effective explainer video narration scripts.
 
 ## Length
 
-- **Target:** 150-200 words for 60-90 seconds
-- **Speaking rate:** ~2.3 words/second (professional narration)
+- **Default target:** 130-175 words for 45-70 seconds
+- **Only go longer** when the user explicitly asks for a slower, more educational, or more documentary-style explainer
+- **Speaking rate:** ~2.6-3.0 words/second for most SaaS and product videos
 - **Shorter is better** — every word competes with the visual demo
+- **Hard pacing rule:** if a spoken line runs longer than the current visual can support, shorten the line or add another visual beat
+
+## Macro Pacing
+
+Use this editorial map by default:
+
+- **0-2s:** hook or product promise lands immediately
+- **6-8s:** product or interface is visible
+- **8-12s:** demo begins
+- **12-15s max before the demo is fully underway:** no long exposition runway
+- **Every 2-4s:** introduce a new claim, proof point, or visual beat
 
 ## Format: Per-Section JSON
 
@@ -33,14 +45,14 @@ Save as `scripts/video/narration-sections.json`:
 
 | sceneId pattern | Purpose | Typical length |
 | --- | --- | --- |
-| `title` | Hook — what is this tool? | 1-2 sentences, ~15-25 words |
-| `problem` | Pain point it solves | 1-2 sentences, ~15-25 words |
+| `title` | Hook — what is this tool? | 1-2 sentences, ~10-18 words |
+| `problem` | Pain point it solves | 1-2 sentences, ~10-20 words |
 | `transition` | Bridge to demo | 1 short sentence |
-| `demo-01` through `demo-08` | One per screenshot, narrate what's on screen | 1-3 sentences, ~20-35 words each |
+| `demo-01` through `demo-08` | One per message beat, not one frozen screenshot | 1-2 sentences, ~12-24 words each |
 | `stats` | Key metrics / social proof | 1-2 sentences |
 | `cta` | Call to action | 1 sentence |
 
-Demo sections include a `screenshotId` that links to the corresponding entry in `tour-plan.json`.
+Demo sections include a `screenshotId` that links to the primary entry in `tour-plan.json`. A polished demo can still use more than one visual beat inside that narration window.
 
 ## Writing Style
 
@@ -50,6 +62,27 @@ Demo sections include a `screenshotId` that links to the corresponding entry in 
 - **No jargon in narration** unless the audience expects it (clinical terms for medical, technical terms for developers)
 - **No filler phrases.** Cut "basically", "essentially", "as you can see"
 - **Match the platform's tone.** B2B enterprise = confident and authoritative. Creative tools = energetic and modern. Developer tools = calm and technical.
+- **One claim per beat.** If the line is trying to explain three things, split it.
+- **Lead with verbs.** Prefer "Track work instantly" over "The dashboard provides tracking capabilities"
+- **Avoid page-tour phrasing.** Don't say "On the homepage..." or "Here on the pricing page..." unless the location itself matters
+
+## Demo Copy Rules
+
+- **Write demo narration like commercial copy, not product training**
+- **Keep each demo section punchy:** usually 12-24 words
+- **Name the user benefit or proof first, then let the visuals support it**
+- **If a demo segment exceeds 24-28 words, consider splitting the message or planning caption progression within the shot**
+- **Do not narrate obvious UI details** like "this button is blue" or "on the left side"
+
+### Bad vs good demo lines
+
+Bad:
+- "Here on the homepage, you can see the dashboard and some of the platform features."
+- "This page shows analytics, integrations, reports, and automation tools for teams."
+
+Good:
+- "See performance in one glance, then drill straight into the work behind it."
+- "Automations remove the follow-up work, so the team can keep moving."
 
 ## Cross-Section Flow (CRITICAL)
 
@@ -66,15 +99,15 @@ Because each section is generated as a separate TTS file and then concatenated, 
   - "On top of that..."
 - **Avoid repeating openers:** Don't start two consecutive sections the same way.
 - **Consistent punctuation:** End every section with a period. Avoid exclamation marks — they create tonal spikes between segments.
-- **Natural breathing room:** The concatenation pipeline adds 300ms of silence between segments. Write section endings that feel complete at the end of a thought.
+- **Natural breathing room:** The concatenation pipeline should usually add only 120-180ms of silence between segments. Write section endings that feel complete without inviting a long pause.
 
 ### Good example (flows naturally across sections)
 
 ```json
 [
-  { "sceneId": "demo-01", "screenshotId": "01-dashboard", "text": "The dashboard gives you a complete view of your team's activity, with time tracked, tasks completed, and productivity scores all in one place." },
-  { "sceneId": "demo-02", "screenshotId": "02-reports", "text": "From here, detailed reports break down hours by project, client, or team member — making invoicing and payroll effortless." },
-  { "sceneId": "demo-03", "screenshotId": "03-integrations", "text": "And with over thirty integrations, everything connects to the tools your team already uses." }
+  { "sceneId": "demo-01", "screenshotId": "01-dashboard", "text": "See team performance in one glance, with the signal rising above the noise." },
+  { "sceneId": "demo-02", "screenshotId": "02-reports", "text": "From there, reports turn raw activity into billable clarity." },
+  { "sceneId": "demo-03", "screenshotId": "03-integrations", "text": "And because it plugs into the stack you already use, rollout stays simple." }
 ]
 ```
 
@@ -82,9 +115,9 @@ Because each section is generated as a separate TTS file and then concatenated, 
 
 ```json
 [
-  { "sceneId": "demo-01", "screenshotId": "01-dashboard", "text": "Check out the dashboard! It shows activity!" },
-  { "sceneId": "demo-02", "screenshotId": "02-reports", "text": "Reports are available. You can see hours." },
-  { "sceneId": "demo-03", "screenshotId": "03-integrations", "text": "There are integrations too!" }
+  { "sceneId": "demo-01", "screenshotId": "01-dashboard", "text": "This is the dashboard and it shows the dashboard information." },
+  { "sceneId": "demo-02", "screenshotId": "02-reports", "text": "Here you can look at the reports page for reports." },
+  { "sceneId": "demo-03", "screenshotId": "03-integrations", "text": "There are integrations on this integrations screen." }
 ]
 ```
 
@@ -115,7 +148,8 @@ Do NOT default to a hardcoded voice. The voice should match the platform's audie
 - `stability`: 0.55–0.65 — enough consistency without sounding robotic
 - `similarity_boost`: 0.75–0.85 — maintains voice character across sections
 - `style`: 0.1–0.2 — subtle expressiveness, not theatrical
-- `speed`: 0.9–1.0 — slightly slower for clarity
+- `speed`: 1.03–1.10 for most SaaS and product marketing videos
+- Slow down only when the audience expects a calmer cadence or the vocabulary is unusually dense
 
 ### Consistency across sections
 
@@ -131,3 +165,20 @@ All sections MUST use the same `voice_id`, `stability`, `similarity_boost`, `sty
 4. Remotion reads `narration-timing.json` to set `durationInFrames` for each scene
 
 This guarantees perfect audio-visual sync. The narrator can never drift ahead of or behind the visuals.
+
+## Caption Coordination
+
+Narration and captions should feel like one system:
+
+- Narration carries the main claim
+- Captions reinforce why the claim matters
+- If the narration segment is longer than one visual beat, let the caption progress once or twice instead of holding identical copy the whole time
+- Avoid captions that merely restate the page label
+
+Bad captions:
+- "Dashboard"
+- "Analytics page"
+
+Better captions:
+- "See risk before it slows the team down"
+- "Turn raw activity into a decision"

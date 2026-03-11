@@ -599,30 +599,30 @@ const rightX = interpolate(progress, [0, 1], [60, 0]);
 
 ## 6. Demo Scene Enhancement
 
-The demo scene is 40-60% of the video runtime. Professional SaaS videos use **high-resolution screenshots** animated with motion graphics — NOT live screen recordings. Playwright captures pixel-perfect screenshots of each key page/feature, then Remotion handles all animation: transitions between screenshots, Ken Burns drift, captions, and cursor paths.
+The demo scene is 40-60% of the video runtime. Professional SaaS videos use **high-resolution screenshots** animated with motion graphics — NOT live screen recordings. Playwright captures pixel-perfect screenshots of each key page/feature, then Remotion handles all animation: transitions between screenshots, shot-specific camera moves, captions, and caption choreography.
 
 **Why screenshots, not screen recordings:** Playwright's `recordVideo` produces jittery scrolling, visible loading states, and bot-like movement. Screenshots are pixel-perfect, and Remotion's animation is buttery smooth.
 
 The architecture:
-1. **Screenshot Carousel** — `TransitionSeries` of product screenshots inside a DeviceFrame (REQUIRED)
-2. **Narration-synced timing** — each screenshot's `durationInFrames` is derived from **measured audio** in `narration-timing.json`, NOT arbitrary values or estimates (REQUIRED)
-3. **Scene Captions** — label each screenshot with the page/feature name (REQUIRED)
-4. **Animated URL bar** — the DeviceFrame URL updates per screenshot (REQUIRED)
-5. **Ken Burns drift** — subtle per-screenshot drift, the only camera movement (REQUIRED)
+1. **Beat-driven screenshot sequence** — shots are planned around claims, proof, workflow, and outcomes, not just page coverage (REQUIRED)
+2. **Narration-synced timing** — each `demo-*` timing window is derived from **measured audio** in `narration-timing.json`, NOT arbitrary values or estimates (REQUIRED)
+3. **Scene Captions** — captions explain why the moment matters, not just what page is visible (REQUIRED)
+4. **Optional browser framing** — URL bars and browser chrome are tools, not mandatory wrappers (OPTIONAL)
+5. **Shot-specific camera choreography** — use different motion patterns for `establish`, `push-in`, `detail-crop`, `split-proof`, and `result-state` (REQUIRED)
 
 ### Screenshot timing: synced to measured narration audio (CRITICAL)
 
 The most common failure in AI-generated videos is **audio-visual desync** — the narrator talks about pricing while the homepage is still showing. This happens when screenshot durations are based on **estimated timestamps** instead of measured audio durations.
 
-**The fix:** Narration is generated per-section (one TTS file per scene/screenshot). Each segment's duration is measured with `ffprobe` and saved to `narration-timing.json`. In the DemoScene, compute: `durationInFrames = Math.ceil(segment.duration * FPS)` from the measured `demo-*` segments.
+**The fix:** Narration is generated per-section (one TTS file per scene/message beat). Each segment's duration is measured with `ffprobe` and saved to `narration-timing.json`. In the DemoScene, compute the available timing window from the measured `demo-*` segments.
 
-This approach guarantees sync because the duration of each scene is the **actual** length of its narration audio — not an estimate written before the TTS was generated.
+This approach guarantees sync because the duration of each scene is the **actual** length of its narration audio — not an estimate written before the TTS was generated. If a single narration segment needs multiple visual beats, subdivide that measured window intentionally instead of letting one shot freeze in place.
 
-**Do NOT** use a fixed duration per screenshot. Do NOT use estimated timestamps. If the narrator's measured audio for the homepage is 8.12 seconds and pricing is 5.45 seconds, those screenshots must display for 8.12s and 5.45s respectively.
+**Do NOT** use a fixed duration per screenshot. Do NOT use estimated timestamps. If the narrator's measured audio for a proof segment is 8.12 seconds, the visual sequence for that segment must fill exactly 8.12 seconds, whether that is one shot or three.
 
 ### Screenshot Carousel (REQUIRED — primary technique)
 
-The DemoScene is a `TransitionSeries` that sequences product screenshots inside a DeviceFrame. Each screenshot's duration is derived from narration timing, with Ken Burns drift and smooth crossfade/slide transitions between them.
+The DemoScene is a `TransitionSeries` or `Series` that sequences product screenshots inside a DeviceFrame or full-bleed crop. Each message beat's duration is derived from narration timing, with shot-specific movement and fast transitions between beats.
 
 ```tsx
 import { AbsoluteFill, Img, staticFile, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
@@ -635,13 +635,21 @@ interface DemoShot {
   label: string;
   url: string;
   durationInFrames: number;
+  shotArchetype: "establish" | "push-in" | "detail-crop" | "split-proof" | "result-state";
 }
 
 const ScreenshotSlide: React.FC<{ shot: DemoShot }> = ({ shot }) => {
   const frame = useCurrentFrame();
   const { durationInFrames } = useVideoConfig();
-  const scale = interpolate(frame, [0, durationInFrames], [1.0, 1.04], { extrapolateRight: "clamp" });
-  const x = interpolate(frame, [0, durationInFrames], [0, -8], { extrapolateRight: "clamp" });
+  const motion = {
+    establish: { startScale: 1.0, endScale: 1.03, startX: 0, endX: -6 },
+    "push-in": { startScale: 1.01, endScale: 1.08, startX: 8, endX: -18 },
+    "detail-crop": { startScale: 1.08, endScale: 1.12, startX: 0, endX: -10 },
+    "split-proof": { startScale: 1.02, endScale: 1.05, startX: -4, endX: 6 },
+    "result-state": { startScale: 1.04, endScale: 1.06, startX: 0, endX: 0 },
+  }[shot.shotArchetype];
+  const scale = interpolate(frame, [0, durationInFrames], [motion.startScale, motion.endScale], { extrapolateRight: "clamp" });
+  const x = interpolate(frame, [0, durationInFrames], [motion.startX, motion.endX], { extrapolateRight: "clamp" });
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>
       <Img
@@ -656,7 +664,7 @@ const ScreenshotSlide: React.FC<{ shot: DemoShot }> = ({ shot }) => {
   );
 };
 
-// In DemoScene, sequence screenshots with varied transitions:
+// In DemoScene, sequence screenshots with varied, quick transitions:
 <TransitionSeries>
   {shots.map((shot, i) => (
     <React.Fragment key={shot.file}>
@@ -666,7 +674,7 @@ const ScreenshotSlide: React.FC<{ shot: DemoShot }> = ({ shot }) => {
       {i < shots.length - 1 && (
         <TransitionSeries.Transition
           presentation={i % 2 === 0 ? fade() : slide({ direction: "from-right" })}
-          timing={springTiming({ config: { damping: 15 } })}
+          timing={springTiming({ durationInFrames: 8, config: { damping: 15 } })}
         />
       )}
     </React.Fragment>
@@ -674,11 +682,11 @@ const ScreenshotSlide: React.FC<{ shot: DemoShot }> = ({ shot }) => {
 </TransitionSeries>
 ```
 
-Vary transitions: fade, slide-from-right, slide-from-bottom. Don't repeat the same transition for every screenshot.
+Vary transitions: fade, slide-from-right, slide-from-bottom. Don't repeat the same transition for every screenshot, and keep internal demo transitions fast unless a major structural shift justifies a longer move.
 
 ### Scene Captions (REQUIRED)
 
-Captions label each screenshot so the viewer knows what page/feature they're looking at. Without captions, the demo is meaningless noise.
+Captions should tell the viewer why the moment matters. Page labels alone are not enough.
 
 ```tsx
 interface TourStep {
@@ -773,23 +781,23 @@ const DemoCaptions: React.FC<DemoCaptionsProps> = ({ tourPlan, branding }) => {
 
 ```tsx
 const shots: DemoShot[] = [
-  { file: "screenshots/01-homepage.png", label: "Homepage",  url: "example.com",          durationInFrames: 120 },
-  { file: "screenshots/02-features.png", label: "Features",  url: "example.com/features",  durationInFrames: 150 },
-  { file: "screenshots/03-product.png",  label: "Product",   url: "example.com/product",   durationInFrames: 150 },
-  { file: "screenshots/04-pricing.png",  label: "Pricing",   url: "example.com/pricing",   durationInFrames: 120 },
+  { file: "screenshots/01-homepage.png", label: "Start with the promise", url: "example.com", durationInFrames: 72, shotArchetype: "establish" },
+  { file: "screenshots/02-features.png", label: "Turn the promise into proof", url: "example.com/features", durationInFrames: 54, shotArchetype: "detail-crop" },
+  { file: "screenshots/03-product.png", label: "Show the workflow in motion", url: "example.com/product", durationInFrames: 96, shotArchetype: "push-in" },
+  { file: "screenshots/04-pricing.png", label: "Land on the outcome", url: "example.com/pricing", durationInFrames: 60, shotArchetype: "result-state" },
 ];
 
 <AbsoluteFill>
   <DeviceFrame tourPlan={shots}>
     <ScreenshotCarousel shots={shots} />
   </DeviceFrame>
-  <DemoCaptions shots={shots} />
+  <DemoCaptions tourPlan={shots} />
 </AbsoluteFill>
 ```
 
-### Animated URL Bar (REQUIRED)
+### Animated URL Bar (OPTIONAL)
 
-The DeviceFrame top bar should display a URL that updates as the recording navigates between pages. This gives the viewer a sense of real navigation, not a canned playback.
+The DeviceFrame top bar can display a URL that updates as the recording navigates between pages. Use it when it helps the viewer orient themselves. Omit it for tight proof crops, split-proof compositions, and any beat where browser chrome makes the video feel like passive browsing.
 
 ```tsx
 interface AnimatedUrlBarProps {
@@ -855,11 +863,11 @@ const AnimatedUrlBar: React.FC<AnimatedUrlBarProps> = ({ tourPlan, branding }) =
 
 Pass `tourPlan` to your `DeviceFrame` component and render the `AnimatedUrlBar` as the top bar instead of a static URL string.
 
-### Ken Burns Drift (the ONLY camera movement)
+### Camera Choreography
 
-Each screenshot gets a gentle drift applied within its `ScreenshotSlide`. This prevents static frames from feeling "frozen" while keeping motion subtle.
+Each screenshot gets a deliberate move based on its job in the story. This prevents static frames from feeling frozen while keeping motion purposeful.
 
-**Do NOT zoom in/out aggressively. Do NOT pan across screenshots.** The Ken Burns is barely perceptible — just enough to add life.
+**Do NOT zoom in/out aggressively. Do NOT pan mechanically across every screenshot.** Motion should match the shot archetype.
 
 ```tsx
 const { width, height } = useVideoConfig();
@@ -901,56 +909,12 @@ const kenBurnsY = interpolate(
 - Y drift: `0 → -3px` (slight upward pan)
 - No easing jumps, no keyframes — one smooth linear interpolation
 
-### Callout Overlay (OPTIONAL)
+### Screenshot Emphasis
 
-Use callouts only when narration specifically references a UI element that needs visual emphasis. Most of the time, scene captions are sufficient. Callouts are the exception, not the rule.
+Do not place highlight boxes or callout rectangles over the product UI. Most of the time, scene captions, better framing, camera motion, and shot sequencing are sufficient. If a screenshot feels unclear, recapture or reframe it instead of drawing boxes on top of it.
 
 ```tsx
-interface Callout {
-  frame: number;
-  duration: number;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
-const CalloutOverlay: React.FC<{ callouts: Callout[] }> = ({ callouts }) => {
-  const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
-
-  return (
-    <AbsoluteFill style={{ pointerEvents: "none" }}>
-      {callouts.map((c, i) => {
-        const localFrame = frame - c.frame;
-        if (localFrame < 0 || localFrame > c.duration) return null;
-
-        const enterProgress = spring({ frame: localFrame, fps, config: { damping: 15 } });
-        const exitProgress = localFrame > c.duration - 10
-          ? interpolate(localFrame, [c.duration - 10, c.duration], [1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" })
-          : 1;
-
-        return (
-          <div
-            key={i}
-            style={{
-              position: "absolute",
-              left: c.x,
-              top: c.y,
-              width: c.width,
-              height: c.height,
-              border: `2px solid ${branding.colors.accent}`,
-              borderRadius: 8,
-              opacity: enterProgress * exitProgress,
-              transform: `scale(${enterProgress})`,
-              boxShadow: `0 0 20px ${branding.colors.accent}44`,
-            }}
-          />
-        );
-      })}
-    </AbsoluteFill>
-  );
-};
+// No callout overlay component. If the viewer needs more guidance, improve the shot and caption instead of drawing rectangles over the UI.
 ```
 
 ### Device Frame Dimensions at 1080p
@@ -968,11 +932,13 @@ At 1920x1080 resolution, the device frame should be:
 |---|---|
 | Using `recordVideo` for the demo | Screen recordings look jittery and amateur — screenshots + Remotion animation is superior |
 | Aggressive zoom in/out on screenshots | Robotic zoom-in/zoom-out looks mechanical and distracting |
-| No captions on the demo | Viewer has no idea what page or feature they're looking at |
+| No captions on the demo | Viewer has no idea why the current moment matters |
 | Static URL bar while screenshots change | Breaks the illusion of real navigation |
+| Highlight boxes drawn over the UI | Usually feel inaccurate, arbitrary, and distracting |
 | Fewer than 4 screenshots | Demo feels static and empty |
 | Same transition for every screenshot | Monotonous — vary between fade and slide |
 | Capturing loading states or cookie banners | Wait for full render before capturing |
+| Holding one unchanged screen for too long | The video feels dead even if sync is technically correct |
 
 ---
 
@@ -1073,11 +1039,11 @@ These are the hallmarks of amateur video. If your scene matches any of these des
 
 ### "Dead Demo"
 **Symptom:** Device frame shows the same screenshot for 30-40 seconds with no transitions, or shows screenshots that don't match what the narrator is saying.
-**Fix:** Use the screenshot carousel with shot-specific choreography rather than the same generic drift on every frame. Derive each screenshot's `durationInFrames` from measured audio in `narration-timing.json`. Add camera intent, richer captions, and optional cursor/highlight guidance when the narration references a specific product area.
+**Fix:** Use the screenshot carousel with shot-specific choreography rather than the same generic drift on every frame. Derive each narration beat from measured audio in `narration-timing.json`, then split long beats into additional visual beats. Add camera intent and richer captions when the narration references a specific product area.
 
 ### "Desync Demo"
 **Symptom:** Narrator says "and here's the pricing" while the homepage screenshot is still visible.
-**Fix:** Generate TTS per section (one `demo-*` segment per screenshot), measure each segment's duration with `ffprobe`, and set `durationInFrames = Math.ceil(segment.duration * FPS)` per shot. This guarantees sync because durations are measured, not estimated. This is NOT optional — audio-visual sync is the difference between professional and amateur.
+**Fix:** Generate TTS per section (one `demo-*` segment per message beat), measure each segment's duration with `ffprobe`, and map the visual sequence to that exact timing window. This guarantees sync because durations are measured, not estimated. This is NOT optional — audio-visual sync is the difference between professional and amateur.
 
 ### "Blank Screenshot"
 **Symptom:** A demo section shows a white/blank page because the screenshot captured a loading state or an empty page.
@@ -1110,4 +1076,35 @@ Before considering any scene complete, verify:
 7. Does the text respect safe zones (90% of frame)?
 8. For demo scenes: do screenshot durations match measured narration segments in `narration-timing.json`? (audio-visual sync)
 9. For demo scenes: are all screenshots non-blank? (visually verified PNGs)
-10. For demo scenes: does the screenshot change when the narration topic changes? (guaranteed by per-section TTS)
+10. For demo scenes: does the visual beat change when the narration topic changes, or when the current beat has run too long?
+
+## Post-Render Review Gate
+
+Do not approve a render just because it is technically synced. Run these three review passes after export:
+
+1. **Uninterrupted watch** — judge energy, clarity, and whether it feels like a professional product ad
+2. **Scene-by-scene watch** — inspect legibility, visual support for each spoken claim, weak crops, and dead holds
+3. **Audio-only pass** — listen for narration clarity, music masking, SFX harshness, and dead air
+
+### Final acceptance checklist
+
+Approve only if all are true:
+
+1. The first 3 seconds feel intentional and brand-specific
+2. The product is visible by 6–8 seconds unless the brief calls for a slower structure
+3. No unchanged visual state lingers more than 4–6 seconds without a strong reason
+4. Captions add meaning instead of repeating page labels
+5. Spoken claims and visual proof stay aligned throughout
+6. Music supports momentum without masking narration
+7. The CTA lands clearly and holds long enough to read
+8. The whole piece feels distinctive rather than generic
+
+### Rework triggers
+
+Reject and revise the render if any of these show up:
+
+- The video is technically correct but still feels dead, slow, or generic
+- A feature is named before the supporting visual appears
+- Two or more transitions feel mushy, overly long, or stylistically repetitive
+- Any screenshot is compositionally weak even if it is not blank
+- Captions state only where the viewer is instead of why the moment matters

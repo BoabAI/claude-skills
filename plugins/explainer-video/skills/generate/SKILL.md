@@ -182,7 +182,7 @@ Do NOT default to a hardcoded voice. Analyze the platform's audience and tone, t
 - `stability`: 0.55–0.65 (enough consistency without sounding robotic)
 - `similarity_boost`: 0.75–0.85 (maintain voice character)
 - `style`: 0.1–0.2 (subtle expressiveness)
-- `speed`: 0.9–1.0 (slightly slower for clarity)
+- `speed`: 1.03–1.10 for most SaaS, product, and creative marketing videos. Only drop to `0.95–1.0` for intentionally calm, technical, financial, or healthcare brands.
 
 #### Step 5: Create branding.json
 
@@ -221,7 +221,7 @@ Create `scripts/video/branding.json` that captures the brand identity, creative 
     "stability": 0.6,
     "similarityBoost": 0.8,
     "style": 0.15,
-    "speed": 0.95
+    "speed": 1.05
   }
 }
 ```
@@ -230,7 +230,18 @@ Create `scripts/video/branding.json` that captures the brand identity, creative 
 
 ### Phase 3: Write Narration (Per-Section)
 
-Write a 60–90 second script (~150–200 words). See [narration-guide.md](${CLAUDE_SKILL_DIR}/references/narration-guide.md).
+Write a professional default script in the **45–70 second** range (~130–175 words). Only extend beyond that if the user explicitly asks for a slower or more comprehensive video. See [narration-guide.md](${CLAUDE_SKILL_DIR}/references/narration-guide.md).
+
+#### Default pacing map for professional product videos
+
+Use this as the default editorial rhythm unless the user asks for a slower, calmer, or more documentary-style cut:
+
+1. **Hook lands in the first 2 seconds**
+2. **Product or interface appears by 6–8 seconds**
+3. **Demo begins by 8–12 seconds**
+4. **Intro + title + problem combined should stay under 12–15 seconds**
+5. **A new idea, cut, or visual beat should happen every 2–4 seconds**
+6. **Never place more than two non-product exposition scenes before showing the interface**
 
 #### CRITICAL: Write narration as separate named sections
 
@@ -243,23 +254,23 @@ Save to `scripts/video/narration-sections.json`:
   { "sceneId": "title", "text": "Hubstaff. Time tracking and productivity monitoring for the modern hybrid workforce." },
   { "sceneId": "problem", "text": "Managing remote teams shouldn't mean endless check-ins, manual timesheets, and guessing who's doing what." },
   { "sceneId": "transition", "text": "Here's how Hubstaff changes that." },
-  { "sceneId": "demo-01", "screenshotId": "01-homepage-hero", "text": "Hubstaff brings time tracking, productivity insights, and payroll into one powerful platform — trusted by over a hundred thousand businesses worldwide." },
-  { "sceneId": "demo-02", "screenshotId": "02-productivity", "text": "See exactly how your team spends their time with actionable productivity metrics — no micromanagement required." },
-  { "sceneId": "demo-03", "screenshotId": "03-workforce", "text": "Manage schedules, attendance, and time-off requests from a single intuitive dashboard." },
-  { "sceneId": "demo-04", "screenshotId": "04-integrations", "text": "Connect with over thirty-five tools your team already uses — from Jira and Slack to QuickBooks and Salesforce." },
-  { "sceneId": "demo-05", "screenshotId": "05-pricing", "text": "Choose from flexible plans that scale with your team, starting with a free fourteen-day trial." },
+  { "sceneId": "demo-01", "screenshotId": "01-homepage-hero", "text": "Track work, productivity, and payroll from one operating view." },
+  { "sceneId": "demo-02", "screenshotId": "02-productivity", "text": "See performance fast, then drill into the work behind it." },
+  { "sceneId": "demo-03", "screenshotId": "03-workforce", "text": "Keep schedules, attendance, and approvals moving without extra follow-up." },
+  { "sceneId": "demo-04", "screenshotId": "04-integrations", "text": "Plug into the tools your team already runs on." },
+  { "sceneId": "demo-05", "screenshotId": "05-pricing", "text": "Scale up with a plan that fits how your team operates." },
   { "sceneId": "stats", "text": "Half a million active users. Twenty-one million hours tracked. Four million tasks completed." },
   { "sceneId": "cta", "text": "Start your free trial today at hubstaff dot com." }
 ]
 ```
 
-Each `sceneId` maps to a video scene. Demo sections include a `screenshotId` that links to the corresponding screenshot in `tour-plan.json`.
+Each `sceneId` maps to a video scene. Demo sections include a `screenshotId` that links to the **primary** visual beat in `tour-plan.json`, but a strong demo may still use multiple visual beats inside that measured narration window.
 
 **Section structure:**
 1. **title** — Hook: What is this tool? (1-2 sentences)
 2. **problem** — Pain point it solves (1-2 sentences)
 3. **transition** — Bridge to demo (1 short sentence)
-4. **demo-01 through demo-05** (or more) — One section per screenshot, narrate what's on screen
+4. **demo-01 through demo-05** (or more) — One section per product claim or proof beat, not one static screenshot hold
 5. **stats** — Key metrics or social proof
 6. **cta** — Call to action
 
@@ -270,6 +281,7 @@ Each `sceneId` maps to a video scene. Demo sections include a `screenshotId` tha
 - Keep punctuation consistent — end with periods, not exclamation marks
 - Avoid starting two consecutive sections the same way
 - The TTS model maintains consistent style when text flows naturally
+- Keep demo sections to one claim per beat. If the line starts stacking multiple features, split it
 
 **Pronunciation gotchas for TTS (IMPORTANT):**
 - Spell out abbreviations TTS might mangle: ".docx" → "dot docx"
@@ -323,7 +335,7 @@ Create `scripts/video/narration-timing.json`:
     { "sceneId": "stats", "file": "narration-segments/08-stats.mp3", "duration": 5.92 },
     { "sceneId": "cta", "file": "narration-segments/09-cta.mp3", "duration": 3.41 }
   ],
-  "paddingSeconds": 0.3,
+  "paddingSeconds": 0.15,
   "totalDuration": 0
 }
 ```
@@ -332,11 +344,11 @@ Compute `totalDuration` as: `sum(all segment durations) + (segment_count - 1) * 
 
 #### Phase 4d: Concatenate Into Final Narration
 
-Use ffmpeg to concatenate all segments with 300ms silence padding between them. The padding creates natural breathing room and eliminates tonal jarring between separately-generated segments.
+Use ffmpeg to concatenate all segments with **120–180ms** silence padding by default. Reserve **220–300ms** only for major structural breaks such as `problem -> demo` or `stats -> cta`. The goal is continuity with energy, not dead air between every sentence.
 
 ```bash
-# Generate a 300ms silence file
-ffmpeg -y -f lavfi -i anullsrc=r=44100:cl=mono -t 0.3 -q:a 9 -acodec libmp3lame /tmp/silence.mp3
+# Generate a 150ms silence file
+ffmpeg -y -f lavfi -i anullsrc=r=44100:cl=mono -t 0.15 -q:a 9 -acodec libmp3lame /tmp/silence.mp3
 
 # Build a concat list file
 echo "file 'narration-segments/01-title.mp3'" > /tmp/concat.txt
@@ -379,16 +391,16 @@ Before capturing anything, explore the site to understand its structure:
 
 **Phase 5b: Plan the Capture Tour**
 
-Plan 5-8 screenshots across 3-5 pages. **Each screenshot must correspond to a `demo-*` section in `narration-sections.json`** — the `screenshotId` field links them.
+Plan **4-8 message moments** across the product story, usually captured as **8-14 visual beats**. Do not treat the demo like a website tour. Treat it like an editorial sequence built around claims, proof, and outcomes.
 
-1. Map each `demo-*` section from `narration-sections.json` to a specific screenshot capture
-2. The narration sections define which pages/features to capture — don't capture pages that aren't mentioned in the narration
-3. Prefer stateful product moments over generic full-page holds. If a richer feature section, selected tab, expanded accordion, or toggled pricing state better matches the narration, capture that instead of the default top-of-page view.
-4. For each page, decide what view to capture (hero, scrolled to features, specific tab selected, hovered card, expanded accordion, toggled pricing mode)
-5. Multiple captures per page are encouraged — e.g., homepage hero + homepage features section
-6. Treat `tour-plan.json` as a shot script, not just an asset manifest. Include motion intent, caption copy, and any overlay geometry the Remotion layer will need.
-7. If you intend to place a highlight box, cursor target, or callout over a UI element, derive its geometry from the page during capture time whenever possible. Do not guess box positions by eye after the screenshot is already taken.
-8. Create a `tour-plan.json` at `scripts/video/` describing each screenshot. **Do NOT include narration timestamps** — screenshot durations come from `narration-timing.json` (measured audio):
+1. Map each `demo-*` section from `narration-sections.json` to a **message beat** first, then decide whether that beat needs one visual, two visuals, or a micro-sequence inside the same measured timing window
+2. The narration sections define which product claims must be visualized — don't capture pages that are not in service of those claims
+3. Prefer strong product states over generic page coverage. If a tighter crop, a scrolled state, a selected tab, or a before/after framing proves the claim better, use that instead of the default page top
+4. Use approved shot archetypes: `establish`, `push-in`, `detail-crop`, `split-proof`, `result-state`
+5. Browser chrome and animated URL bars are optional tools, not mandatory framing for every beat. Use them when orientation helps. Remove them when they make the sequence feel like browsing
+6. Treat `tour-plan.json` as a shot script, not just an asset manifest. Include motion intent, caption copy, and camera direction the Remotion layer will need
+7. Do not add highlight boxes or callout rectangles over the product UI. If a moment needs emphasis, solve it through stronger shot selection, better scroll position, clearer captions, or more deliberate camera choreography
+8. Create a `tour-plan.json` at `scripts/video/` describing each screenshot or sub-beat. **Do NOT include narration timestamps** — screenshot durations come from `narration-timing.json` (measured audio):
 
 ```json
 [
@@ -401,6 +413,7 @@ Plan 5-8 screenshots across 3-5 pages. **Each screenshot must correspond to a `d
     "eyebrow": "Unified workspace",
     "headline": "Projects, docs, and AI in one system.",
     "subheadline": "Guide the viewer from the promise to the primary CTA.",
+    "shotArchetype": "establish",
     "transitionStyle": "focus",
     "camera": {
       "startScale": 1.02,
@@ -412,17 +425,6 @@ Plan 5-8 screenshots across 3-5 pages. **Each screenshot must correspond to a `d
       "focusX": 36,
       "focusY": 34
     },
-    "emphasis": [
-      {
-        "x": 12,
-        "y": 16,
-        "width": 44,
-        "height": 18,
-        "label": "Core message",
-        "startProgress": 0.12,
-        "endProgress": 0.42
-      }
-    ],
     "interaction": {
       "path": [
         { "x": 78, "y": 18, "progress": 0 },
@@ -430,20 +432,13 @@ Plan 5-8 screenshots across 3-5 pages. **Each screenshot must correspond to a `d
         { "x": 26, "y": 52, "progress": 0.72 }
       ],
       "clicks": [{ "x": 26, "y": 52, "progress": 0.76 }]
-    },
-    "sourceSelectors": {
-      "primary": "section.hero",
-      "highlight": [
-        { "selector": "h1", "label": "Core message" },
-        { "selector": "a[href*='signup'], button", "label": "Primary CTA" }
-      ]
     }
   }
 ]
 ```
 
 Each screenshot's display duration in the video is determined by the corresponding `demo-*` segment in `narration-timing.json` (measured in Phase 4c), NOT by estimated timestamps.
-The tour plan should be rich enough that Remotion can animate each shot with camera choreography, richer captions, cursor cues, and selector-derived highlights instead of generic one-size-fits-all motion.
+The tour plan should be rich enough that Remotion can animate each shot with camera choreography, richer captions, cursor cues, and multiple visual beats inside a narration segment instead of generic one-size-fits-all motion.
 
 **Phase 5c: Capture Screenshots**
 
@@ -457,22 +452,23 @@ Write `scripts/video/capture-demo.ts` that executes the planned capture tour:
 - Perform any pre-capture actions (scroll to section, click tab, hover element, toggle pricing, expand accordion)
 - Take `page.screenshot({ type: "png" })` — viewport only, not full-page
 - Dismiss cookie banners before capturing
-- When a shot needs a highlight, cursor, or callout, collect the target element's bounding box during capture and normalize it to percentages so the overlay matches the screenshot
-- Store motion metadata in `tour-plan.json`: camera, emphasis, interaction, caption copy, and any selector-derived geometry
+- Store motion metadata in `tour-plan.json`: camera, interaction, and caption copy
 - Output: PNG files in `scripts/video/remotion/public/screenshots/`
 - Output: `scripts/video/tour-plan.json` (no narration timestamps — timing comes from `narration-timing.json`)
+- If one narration section runs longer than 4–6 seconds, plan additional visual beats inside that same section instead of letting a single screenshot sit unchanged
 
 CRITICAL — what NOT to do:
 - Don't use `recordVideo` — screen recordings look amateur with jittery scrolling and loading states
 - Don't capture loading/blank states — verify visible content before every capture
 - Don't rely solely on `networkidle` — use `domcontentloaded` + `waitForSelector` + settle time
-- Don't capture more than 8 screenshots (transitions feel rushed)
+- Don't capture more than 14 screenshots or visual beats (transitions feel rushed)
 - Don't capture fewer than 4 (demo feels static)
 - Don't capture full-page screenshots — viewport-only matches the Remotion frame
 - Don't skip PNG verification — always visually inspect all screenshots before proceeding to Phase 6
-- Don't guess overlay coordinates by eye if a DOM selector can be measured during capture
+- Don't add highlight boxes or callout rectangles over screenshots
 - Don't use generic top-of-page screenshots when a more product-specific state is available
 - Don't let a screenshot progress to Remotion if the focal content is weak, cropped badly, or visually ambiguous
+- Don't let one unchanged visual state sit for longer than 4–6 seconds unless there is a compelling reason
 
 Run:
 ```bash
@@ -612,7 +608,7 @@ Consult the remotion-best-practices skill for Remotion-specific patterns:
 - [sfx.md](${CLAUDE_SKILL_DIR}/../remotion-best-practices/rules/sfx.md) — sound effect URLs
 - [light-leaks.md](${CLAUDE_SKILL_DIR}/../remotion-best-practices/rules/light-leaks.md) — `<LightLeak>` overlays
 
-See [remotion-scenes.md](${CLAUDE_SKILL_DIR}/references/remotion-scenes.md) for structural animation patterns (multi-layer backgrounds, floating elements, glassmorphism cards, staggered lists, counting numbers, Ken Burns zoom, gradient text, blur-in reveals, demo callouts). These patterns provide the animation skeleton — you apply the creative direction's visual skin on top.
+See [remotion-scenes.md](${CLAUDE_SKILL_DIR}/references/remotion-scenes.md) for structural animation patterns (multi-layer backgrounds, floating elements, glassmorphism cards, staggered lists, counting numbers, Ken Burns zoom, gradient text, blur-in reveals, demo captions). These patterns provide the animation skeleton — you apply the creative direction's visual skin on top.
 
 #### Typical scene types
 
@@ -621,7 +617,7 @@ A standard explainer video includes these scene categories. **Base each scene on
 - **Opening** (2–3s) — logo with glow halo, floating particles, geometric border, blur-in entrance — see IntroScene template — **centered-stack** layout
 - **Title** (4–6s) — gradient shimmer headline, accent line drawing, decorative orbs, staggered entrance — see TitleScene template — **asymmetric-left** or **full-bleed** layout
 - **Problem** (5–7s) — glassmorphism cards in 2x2 grid with icons, negative-tinted glow, staggered card entrance — see ProblemScene template — **card-contained** or **split-screen** layout. **NEVER a bullet list.**
-- **Demo** (35–45s) — screenshot carousel in a device frame with shot-specific camera motion, captions, animated URL bar, and optional cursor/highlight overlays. **Each screenshot's duration is derived from `narration-timing.json`** — filter for `demo-*` segments and use measured timing windows for each screenshot's `durationInFrames`
+- **Demo** (35–45s) — screenshot carousel or micro-sequence in a device frame, full-bleed crop, or split-proof layout with shot-specific camera motion, captions, optional URL framing, and optional cursor cues. **Each narration section's window is derived from `narration-timing.json`**, but that window may contain multiple visual beats
 - **Benefits** (4–6s) — feature cards with accent bars, asymmetric layout with decorative ring elements — see BenefitsScene template — **must use different layout than Problem** (e.g., if Problem is card-contained, Benefits should be asymmetric-right)
 - **Stats** (3–4s) — animated number counting with glow effects, numbers in glassmorphism cards — see StatsScene template — **full-bleed** or **centered** layout
 - **Section dividers** (3–4s) — heading + description transitions with gradient text and accent elements
@@ -636,7 +632,10 @@ A standard explainer video includes these scene categories. **Base each scene on
 - Device frame styling matches the overall aesthetic (dark chrome for dark themes, light for light, etc.)
 - Device frame uses **1680px width** at 1920x1080 resolution
 - Animation spring configs and timing match `style.motionStyle`
-- Demo highlights, cursor targets, and callouts should come from capture-time geometry whenever possible, not guessed percentages authored after the screenshot is taken
+- Do not place highlight boxes or callout rectangles over screenshots; emphasis should come from shot selection, camera intent, and captions
+- Internal demo transitions should usually be **6–10 frames**. Only use 12+ frame transitions for major structural breaks
+- Do not use the same transition type more than twice in a row
+- Every 2–4 seconds, the viewer should receive a new visual beat, claim, or proof point
 
 ### Phase 8: Compose the Scene Timeline
 
@@ -725,7 +724,7 @@ Quality Checklist:
 - [ ] Each scene's durationInFrames matches its measured narration segment in narration-timing.json
 - [ ] Each demo screenshot's durationInFrames matches its demo-* segment in narration-timing.json
 - [ ] No blank/empty screenshots — verify every PNG has visible content before rendering
-- [ ] Any highlight boxes or callouts align with the actual captured UI, preferably from selector-derived geometry
+- [ ] Demo emphasis comes from shot choice, camera movement, and captions rather than highlight boxes over the UI
 - [ ] Every non-demo scene has at least one decorative element besides text
 - [ ] @remotion/light-leaks <LightLeak> used in at least 2 scenes
 - [ ] Background music is present with fade in/out
@@ -737,6 +736,47 @@ Quality Checklist:
 ```
 
 If the checklist reveals issues, fix them now. Re-read [video-design-principles.md](${CLAUDE_SKILL_DIR}/references/video-design-principles.md) for the specific patterns and code to apply.
+
+#### Post-Render Self-Critique Loop
+
+After rendering, do not approve the video immediately. Run all three review passes:
+
+1. **Uninterrupted watch** — watch the full MP4 at normal speed with sound on. Judge only story clarity, energy, polish, and whether it feels like a professional product ad rather than a careful walkthrough
+2. **Scene-by-scene watch** — pause on each scene change and check legibility, weak crops, dead holds, awkward transitions, and whether the visuals support the spoken line within roughly half a second
+3. **Audio-focused pass** — listen for narration clarity, music masking, SFX harshness, unnatural silence gaps, loop seams, and whether the CTA lands clearly after the final spoken line
+
+Log issues as:
+- `blocking` — must fix before approval
+- `major` — rerender if two or more remain
+- `minor` — polish if time allows
+
+#### Final Acceptance Checklist
+
+Before calling the video complete, verify:
+
+```
+Final Acceptance Checklist:
+- [ ] The first 3 seconds establish the brand/product and feel intentional
+- [ ] The product or interface appears by 6–8 seconds unless the user asked for a slower structure
+- [ ] No shot feels like filler or passive browsing
+- [ ] No unchanged visual state lingers longer than 4–6 seconds without a clear reason
+- [ ] Every spoken claim is visually supported within about half a second
+- [ ] Captions explain why the moment matters, not just what page the viewer is on
+- [ ] Music supports momentum and never masks narration
+- [ ] The pacing escalates cleanly from hook to demo to proof to CTA
+- [ ] The final CTA holds long enough to read after the last spoken line
+- [ ] The finished video feels branded and distinctive, not generic SaaS filler
+```
+
+#### Rework Triggers
+
+Rework and rerender if any of these are true:
+
+- The narration references a feature before it appears on screen
+- Two or more scenes feel rushed, mushy, or overlong
+- A screenshot is technically valid but compositionally weak, cluttered, or visually ambiguous
+- Music or SFX make any narration line harder to understand
+- The export feels polished but low-energy or generic after the uninterrupted watch
 
 #### Preview and Render
 
@@ -754,9 +794,10 @@ Review the output. Common adjustments:
 - **Scene too short/long:** Adjust `durationInFrames` in the scene sequence and re-check the measured timing window
 - **Animation too fast/slow:** Adjust spring config or interpolation ranges
 - **Demo screenshot timing off:** Check `narration-timing.json` — durations should derive from measured segments
+- **Demo feels dead:** Split one narration section into multiple visual beats, tighten transitions, or shorten the spoken copy
 - **Audio out of sync:** Re-run Phase 4c to re-measure segment durations and recompute scene durationInFrames
 - **Music too loud:** Lower the volume prop on the background music `<Audio>`
-- **Transition too abrupt:** Increase transition `durationInFrames`
+- **Transition too abrupt or too mushy:** Rebalance toward the 6–10 frame default and align cuts with phrase endings
 - **TTS mispronunciation:** Edit the section text in `narration-sections.json` and regenerate that segment's TTS, then re-concatenate
 - **Design feels generic:** Re-read the video-design-principles.md, reconsider the creative direction, and redesign the scenes
 
