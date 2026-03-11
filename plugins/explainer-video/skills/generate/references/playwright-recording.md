@@ -152,67 +152,162 @@ Based on discovery results, plan a **message-driven demo**, not a page tour. Bui
 
 Most strong demos use **4–8 message moments** captured as **8–14 visual beats**. A single narration segment can justify multiple visual beats if the spoken idea is longer than one shot can carry.
 
-The plan specifies what **screenshots or crops** to take, plus the metadata Remotion will need to animate those screenshots in a more directed way:
+The plan should produce three artifacts, in order:
+
+1. `site-map.json` — pages, nav items, key selectors, and candidate proof moments
+2. `interaction-plan.json` — narration-aligned message beats with structured interaction beats
+3. `tour-plan.json` — flattened capture output with measured geometry and render-ready beat metadata
+
+The interaction plan specifies what **screenshots or crops** to take, plus the metadata Remotion will need to animate those screenshots in a more directed way:
 
 ```typescript
-interface MessageMoment {
-  beatId: string;
-  message: string;
+interface SiteMapPage {
+  id: string;
   url: string;
-  shots: {
-    id: string;               // filename: "01-hero-establish", "02-proof-crop"
+  navItems: { label: string; selector: string }[];
+  candidateProofMoments: { id: string; selector: string; whyItMatters: string }[];
+}
+
+interface SiteMapFile {
+  siteFingerprint:
+    | "long-scroll-marketing"
+    | "multi-page-marketing"
+    | "dashboard-app"
+    | "workflow-tool"
+    | "docs-search"
+    | "data-heavy-ui";
+  pages: SiteMapPage[];
+}
+
+interface InteractionMoment {
+  beatId: string;
+  sceneId: string;
+  pageId: string;
+  shot: {
+    id: string;
     shotArchetype: "establish" | "push-in" | "detail-crop" | "split-proof" | "result-state";
-    action?: string;          // what to do before capturing: "scroll:600", "click:.tab-2", "hover:.card"
+    interactionPattern:
+      | "quiet-establish"
+      | "scroll-proof"
+      | "follow-nav"
+      | "state-reveal"
+      | "result-hold";
+    pointerMode: "hidden" | "ambient" | "guided";
     description: string;
     eyebrow?: string;
     headline?: string;
     subheadline?: string;
-    selector?: string;        // primary area the shot should focus on
-    browserFrame?: boolean;   // set false for full-bleed crops or proof composites
-  }[];
+    browserFrame?: boolean;
+    states?: Array<{
+      id: string;
+      pageId?: string;
+      stateRole: "base" | "detail" | "destination" | "result";
+      preCapture?: Array<
+        | { type: "scrollBy"; value: number }
+        | { type: "scrollToSelector"; selector: string }
+        | { type: "click"; selector: string }
+        | { type: "hover"; selector: string }
+        | { type: "wait"; durationMs: number }
+      >;
+    }>;
+  };
+  preCapture?: Array<
+    | { type: "scrollBy"; value: number }
+    | { type: "scrollToSelector"; selector: string }
+    | { type: "click"; selector: string }
+    | { type: "hover"; selector: string }
+    | { type: "wait"; durationMs: number }
+  >;
+  beats: Array<
+    | {
+        type: "moveCursor";
+        startProgress: number;
+        endProgress: number;
+        cursorPath: { x: number; y: number; progress: number }[];
+      }
+    | {
+        type: "click" | "hover";
+        startProgress: number;
+        endProgress?: number;
+        target: { selector: string; label?: string };
+        soundCue?: "mouse-click" | "switch";
+      }
+    | {
+        type: "scrollReveal";
+        startProgress: number;
+        endProgress: number;
+        fromY: number;
+        toY: number;
+        soundCue?: "whoosh";
+      }
+    | {
+        type: "swapState";
+        startProgress: number;
+        endProgress?: number;
+        toStateId: string;
+        transitionMode?: "instant" | "push" | "lift" | "focus" | "glide";
+      }
+    | {
+        type: "pageChange";
+        startProgress: number;
+        endProgress?: number;
+        toUrl: string;
+        toShotId?: string;
+        toStateId?: string;
+        transitionMode?: "instant" | "push" | "lift" | "focus" | "glide";
+        soundCue?: "page-turn";
+      }
+    | {
+        type: "captionVariant";
+        startProgress: number;
+        endProgress?: number;
+        headline?: string;
+        subheadline?: string;
+      }
+  >;
 }
 
-const tourPlan: MessageMoment[] = [
+const interactionPlan: InteractionMoment[] = [
   {
     beatId: "hero-claim",
-    message: "Show the core promise immediately",
-    url: "https://example.com",
-    shots: [
+    sceneId: "demo-01",
+    pageId: "homepage",
+    shot: {
+      id: "01-hero-establish",
+      shotArchetype: "establish",
+      interactionPattern: "quiet-establish",
+      pointerMode: "hidden",
+      description: "Landing hero section",
+      eyebrow: "Overview",
+      headline: "Show the product promise first",
+      subheadline: "Use the real hero state, not a blank loading shell",
+      browserFrame: true,
+      states: [
+        { id: "hero", stateRole: "base" },
+        { id: "hero-detail", stateRole: "detail", preCapture: [{ type: "scrollBy", value: 280 }] },
+      ],
+    },
+    beats: [
       {
-        id: "01-hero-establish",
-        shotArchetype: "establish",
-        description: "Landing hero section",
-        eyebrow: "Overview",
-        headline: "Show the product promise first",
-        subheadline: "Use the real hero state, not a blank loading shell",
-        selector: "main h1",
-        browserFrame: true,
-      },
-      {
-        id: "02-hero-proof",
-        shotArchetype: "detail-crop",
-        action: "scroll:800",
-        description: "Feature proof close-up",
-        eyebrow: "Proof",
-        headline: "Move from promise into evidence",
-        subheadline: "Crop tighter if the page layout wastes space",
-        selector: "section.features",
-        browserFrame: false,
+        type: "swapState",
+        startProgress: 0.58,
+        endProgress: 0.78,
+        toStateId: "hero-detail",
+        transitionMode: "focus",
       },
     ],
   },
-  {
-    beatId: "workflow-moment",
-    message: "Show the product in motion",
-    url: "https://example.com/features",
-    shots: [
-      { id: "03-workflow-establish", shotArchetype: "push-in", description: "Workflow overview", browserFrame: true },
-      { id: "04-workflow-result", shotArchetype: "result-state", action: "click:[role='tab']:nth-child(2)", description: "Resulting state after interaction", browserFrame: false },
-    ],
-  },
-  // ... 4-8 message moments
+  // ... 4-8 interaction moments
 ];
 ```
+
+Important:
+- Replace loose `action?: string` plans with typed `preCapture[]` plus ordered `beats[]`
+- Pre-capture steps create the deterministic screenshot state
+- Interaction beats describe what the viewer experiences in the video
+- When a beat has a real target, keep the selector until capture time so Playwright can measure geometry instead of guessing coordinates
+- Plan a mix of behaviors across adjacent shots. Avoid emitting the same `moveCursor -> hover/click -> next shot` structure over and over
+- Prefer multi-state moments when the story depends on a visible change, such as a page destination, selected tab, expanded panel, or revealed result
 
 ### Phase C: Capture Screenshots
 
@@ -228,16 +323,73 @@ interface CapturedShot {
   headline?: string;
   subheadline?: string;
   browserFrame?: boolean;
+  interactionPattern?: "quiet-establish" | "scroll-proof" | "follow-nav" | "state-reveal" | "result-hold";
+  pointerMode?: "hidden" | "ambient" | "guided";
+  states?: Array<{
+    id: string;
+    file: string;
+    url: string;
+    stateRole: "base" | "detail" | "destination" | "result";
+  }>;
+  interaction?: {
+    beats: Array<
+      | {
+          type: "moveCursor";
+          startProgress: number;
+          endProgress: number;
+          cursorPath: { x: number; y: number; progress: number }[];
+        }
+      | {
+          type: "click" | "hover";
+          startProgress: number;
+          endProgress?: number;
+          target?: { x: number; y: number; width: number; height: number; label?: string };
+          soundCue?: "mouse-click" | "switch";
+        }
+      | {
+          type: "scrollReveal";
+          startProgress: number;
+          endProgress: number;
+          fromY: number;
+          toY: number;
+          soundCue?: "whoosh";
+        }
+      | {
+          type: "swapState";
+          startProgress: number;
+          endProgress?: number;
+          toStateId: string;
+          transitionMode?: "instant" | "push" | "lift" | "focus" | "glide";
+        }
+      | {
+          type: "pageChange";
+          startProgress: number;
+          endProgress?: number;
+          toUrl: string;
+          toShotId?: string;
+          toStateId?: string;
+          transitionMode?: "instant" | "push" | "lift" | "focus" | "glide";
+          soundCue?: "page-turn";
+        }
+      | {
+          type: "captionVariant";
+          startProgress: number;
+          endProgress?: number;
+          headline?: string;
+          subheadline?: string;
+        }
+    >;
+  };
 }
 
 const captured: CapturedShot[] = [];
 
 async function captureScreenshot(
   page: Page,
-  shot: MessageMoment["shots"][number],
-  beatId: string,
+  moment: InteractionMoment,
+  pageInfo: SiteMapPage,
 ) {
-  const { id, description } = shot;
+  const { id, description } = moment.shot;
   const file = `${id}.png`;
   const filePath = join(SCREENSHOTS_DIR, file);
 
@@ -268,38 +420,47 @@ async function captureScreenshot(
     await page.screenshot({ path: filePath, type: "png" });
   }
 
+  const beats = [];
+  for (const beat of moment.beats) {
+    beats.push(await resolveBeat(page, beat));
+  }
+
   captured.push({
     id,
     file: `screenshots/${file}`,
-    beatId,
+    beatId: moment.beatId,
     url: page.url().replace(/^https?:\/\//, "").replace(/\/$/, ""),
     description,
-    shotArchetype: shot.shotArchetype,
-    eyebrow: shot.eyebrow,
-    headline: shot.headline,
-    subheadline: shot.subheadline,
-    browserFrame: shot.browserFrame,
+    shotArchetype: moment.shot.shotArchetype,
+    eyebrow: moment.shot.eyebrow,
+    headline: moment.shot.headline,
+    subheadline: moment.shot.subheadline,
+    browserFrame: moment.shot.browserFrame,
+    interactionPattern: moment.shot.interactionPattern,
+    pointerMode: moment.shot.pointerMode,
+    states,
+    interaction: beats.length ? { beats } : undefined,
   });
   console.log(`Captured: ${id} — ${description} (${(statSync(filePath).size / 1024).toFixed(0)}KB)`);
 }
 
 await dismissOverlays(page);
 
-for (const moment of tourPlan) {
+for (const moment of interactionPlan) {
+  const pageInfo = siteMap.pages.find((page) => page.id === moment.pageId);
+  if (!pageInfo) throw new Error(`Missing page ${moment.pageId} in site-map.json`);
+
   // Use domcontentloaded + manual settle — networkidle can timeout on sites with
   // persistent connections (analytics, websockets, streaming). Fall back gracefully.
-  await page.goto(moment.url, { waitUntil: "domcontentloaded", timeout: 30000 });
+  await page.goto(pageInfo.url, { waitUntil: "domcontentloaded", timeout: 30000 });
   // Wait for the page to have at least one heading or image visible
   await page.waitForSelector("h1, h2, img, svg, [class*='hero']", { timeout: 8000 }).catch(() => {});
   await page.waitForTimeout(2000); // let fonts, images, and animations settle
 
-  for (const shot of moment.shots) {
-    if (shot.action) {
-      await executeAction(page, shot.action);
-      await page.waitForTimeout(800);
-    }
-    await captureScreenshot(page, shot, moment.beatId);
+  for (const step of moment.preCapture ?? []) {
+    await executeCaptureStep(page, step);
   }
+  await captureScreenshot(page, moment, pageInfo);
 }
 
 // Save capture plan for Remotion
@@ -312,42 +473,41 @@ await browser.close();
 
 ---
 
-## Action Executor
+## Capture Step Executor
 
-Helper to perform actions before each screenshot:
+Helper to perform deterministic pre-capture steps before each screenshot:
 
 ```typescript
-async function executeAction(page: Page, action: string) {
-  const [type, ...args] = action.split(":");
-  const target = args.join(":");
-
-  switch (type) {
-    case "scroll":
-      await page.evaluate((px) => window.scrollBy({ top: Number(px), behavior: "instant" }), target);
-      await page.waitForTimeout(500);
+async function executeCaptureStep(page: Page, step: CaptureStep) {
+  switch (step.type) {
+    case "scrollBy":
+      await page.evaluate(
+        (value) => window.scrollBy({ top: Number(value), behavior: "instant" }),
+        step.value
+      );
+      await page.waitForTimeout(step.durationMs ?? 700);
       break;
-    case "scrollTo":
-      await page.evaluate((sel) => document.querySelector(sel)?.scrollIntoView({ block: "center" }), target);
-      await page.waitForTimeout(500);
+    case "scrollToSelector":
+      await page.locator(step.selector).first().scrollIntoViewIfNeeded();
+      await page.waitForTimeout(step.durationMs ?? 800);
       break;
     case "click":
-      await page.locator(target).first().click();
-      await page.waitForTimeout(800);
+      await page.locator(step.selector).first().click();
+      await page.waitForTimeout(step.durationMs ?? 900);
       break;
     case "hover":
-      await page.locator(target).first().hover();
-      await page.waitForTimeout(500);
+      await page.locator(step.selector).first().hover();
+      await page.waitForTimeout(step.durationMs ?? 500);
       break;
-    case "type":
-      const [selector, text] = target.split("|");
-      await page.locator(selector).first().pressSequentially(text, { delay: 0 });
-      await page.waitForTimeout(300);
+    case "wait":
+      await page.waitForTimeout(step.durationMs ?? 800);
       break;
   }
 }
 ```
 
 Scrolling uses `behavior: "instant"` not `"smooth"` — since we're taking screenshots, there's no one watching the scroll animation. Just jump to the position and capture.
+The video scroll illusion should come from authored `scrollReveal` beats in `tour-plan.json`, not from recording a real smooth scroll.
 
 ---
 
@@ -362,6 +522,9 @@ Scrolling uses `behavior: "instant"` not `"smooth"` — since we're taking scree
 - Do not plan highlight boxes or callout rectangles over the screenshot. Use stronger framing, captions, and shot choreography instead.
 - Reject screenshots that are technically valid but compositionally weak: cropped focal content, poor spacing, confusing scroll position, or no clear subject.
 - If a narration beat lasts more than 4–6 seconds, capture a second visual beat for that same message moment.
+- If a click or hover beat has a real selector, measure its target box at capture time and store normalized geometry in `tour-plan.json`.
+- Keep a clear separation between capture-time steps and in-video interaction beats. Never rely on a loose action string to do both jobs.
+- If the product supports real state change, capture multiple states and let Remotion transition between them. Do not fake every change with cursor overlays.
 
 ---
 

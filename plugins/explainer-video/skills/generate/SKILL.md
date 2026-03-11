@@ -386,8 +386,19 @@ See [playwright-recording.md](${CLAUDE_SKILL_DIR}/references/playwright-recordin
 
 Before capturing anything, explore the site to understand its structure:
 
-- For PUBLIC URLs: Use Playwright to navigate to the site, extract nav links, read page headings, identify interactive elements. Build a map of available pages and features.
+- For PUBLIC URLs: Use Playwright to navigate to the site, extract nav links, read page headings, identify interactive elements. Save a `site-map.json` that lists pages, nav items, key selectors, and candidate proof moments.
 - For LOCAL APPS: Read the project's router config, page components, and route definitions. Start the app and verify key routes.
+
+Use a hybrid rule:
+- AI chooses where to go and why
+- deterministic Playwright captures the exact states
+- Remotion authors the interaction illusion cleanly
+
+The discovery artifact should be first-class, not throwaway notes. At minimum, `site-map.json` should be rich enough to answer:
+- Which pages can the video intentionally navigate to?
+- Which selectors are safe click, hover, tab, accordion, or section-jump targets?
+- Which proof moments actually support the narration instead of generic browsing?
+- What site fingerprint best describes the product? Use categories such as `long-scroll-marketing`, `multi-page-marketing`, `dashboard-app`, `workflow-tool`, `docs-search`, or `data-heavy-ui`
 
 **Phase 5b: Plan the Capture Tour**
 
@@ -398,14 +409,75 @@ Plan **4-8 message moments** across the product story, usually captured as **8-1
 3. Prefer strong product states over generic page coverage. If a tighter crop, a scrolled state, a selected tab, or a before/after framing proves the claim better, use that instead of the default page top
 4. Use approved shot archetypes: `establish`, `push-in`, `detail-crop`, `split-proof`, `result-state`
 5. Browser chrome and animated URL bars are optional tools, not mandatory framing for every beat. Use them when orientation helps. Remove them when they make the sequence feel like browsing
-6. Treat `tour-plan.json` as a shot script, not just an asset manifest. Include motion intent, caption copy, and camera direction the Remotion layer will need
-7. Do not add highlight boxes or callout rectangles over the product UI. If a moment needs emphasis, solve it through stronger shot selection, better scroll position, clearer captions, or more deliberate camera choreography
-8. Create a `tour-plan.json` at `scripts/video/` describing each screenshot or sub-beat. **Do NOT include narration timestamps** — screenshot durations come from `narration-timing.json` (measured audio):
+6. Write an `interaction-plan.json` before capture. It should map each narration beat to one or more structured interaction beats such as `clickToPage`, `scrollToSection`, `hoverReveal`, `switchTab`, `expandAccordion`, or `resultReveal`
+7. Treat `tour-plan.json` as a shot script, not just an asset manifest. Include motion intent, caption copy, camera direction, and ordered interaction beat metadata the Remotion layer will need
+8. Split pre-capture actions from in-video authored beats. Capture-time steps create the screenshot state. Authored beats describe how the cursor, caption, URL bar, and UI SFX should behave in the video
+9. When a click or hover matters, target a measured selector whenever possible. Do not guess geometry by eye if Playwright can resolve it
+10. Choose the interaction type intentionally:
+   - marketing sites: nav click + section jump
+   - multi-page product sites: click-to-page
+   - dense product UIs: tab switch, panel reveal, accordion open
+   - simple landing pages: scroll-to-section, not fake over-clicking
+11. For each demo beat, write down three things before planning motion: `intent`, `evidence`, and `behavior`
+   - `intent`: what the narration needs to prove
+   - `evidence`: what visible state proves it
+   - `behavior`: how the viewer should be guided there, if at all
+12. Not every beat needs the cursor. Deliberately mix:
+   - quiet beats with no pointer
+   - scroll-only beats
+   - true click-to-page beats with a destination state
+   - state-change beats such as tab switches or result reveals
+13. Plan state changes, not just screenshots. A strong beat may need `before`, `during`, and `after` states rather than one still with decorative cursor motion
+14. Enforce diversity across the whole demo:
+   - do not repeat the same interaction type more than twice in a row without a story reason
+   - do not let one interaction type dominate most of the sequence unless the site genuinely only supports it
+   - require at least one true page or state change when the product supports it
+15. Do not add highlight boxes or callout rectangles over the product UI. If a moment needs emphasis, solve it through stronger shot selection, better scroll position, clearer captions, state changes, or more deliberate camera choreography
+16. Create a `tour-plan.json` at `scripts/video/` describing each screenshot or sub-beat. **Do NOT include narration timestamps** — screenshot durations come from `narration-timing.json` (measured audio):
+
+Plan artifacts should follow this shape:
+
+```json
+{
+  "site-map.json": {
+    "siteFingerprint": "multi-page-marketing",
+    "pages": [
+      {
+        "id": "homepage",
+        "url": "https://example.com",
+        "navItems": [{ "label": "Pricing", "selector": "a[href='/pricing']" }],
+        "candidateProofMoments": [{ "id": "hero", "selector": "main h1" }]
+      }
+    ]
+  },
+  "interaction-plan.json": {
+    "moments": [
+      {
+        "beatId": "hero-claim",
+        "sceneId": "demo-01",
+        "pageId": "homepage",
+        "shot": {
+          "id": "01-homepage-hero",
+          "interactionPattern": "quiet-establish",
+          "pointerMode": "hidden",
+          "states": [{ "id": "hero", "stateRole": "base" }]
+        },
+        "beats": [
+          { "type": "swapState", "startProgress": 0.56, "toStateId": "hero-detail", "transitionMode": "focus" }
+        ]
+      }
+    ]
+  }
+}
+```
+
+The flattened capture output should look like this:
 
 ```json
 [
   {
     "id": "01-homepage-hero",
+    "beatId": "hero-claim",
     "file": "screenshots/01-homepage-hero.png",
     "label": "Homepage",
     "url": "example.com",
@@ -414,7 +486,13 @@ Plan **4-8 message moments** across the product story, usually captured as **8-1
     "headline": "Projects, docs, and AI in one system.",
     "subheadline": "Guide the viewer from the promise to the primary CTA.",
     "shotArchetype": "establish",
+    "interactionPattern": "follow-nav",
+    "pointerMode": "guided",
     "transitionStyle": "focus",
+    "states": [
+      { "id": "hero", "file": "screenshots/01-homepage-hero.png", "stateRole": "base", "url": "example.com" },
+      { "id": "pricing", "file": "screenshots/01-homepage-hero--pricing.png", "stateRole": "destination", "url": "example.com/pricing" }
+    ],
     "camera": {
       "startScale": 1.02,
       "endScale": 1.1,
@@ -426,12 +504,33 @@ Plan **4-8 message moments** across the product story, usually captured as **8-1
       "focusY": 34
     },
     "interaction": {
-      "path": [
-        { "x": 78, "y": 18, "progress": 0 },
-        { "x": 38, "y": 34, "progress": 0.36 },
-        { "x": 26, "y": 52, "progress": 0.72 }
+      "beats": [
+        {
+          "type": "moveCursor",
+          "startProgress": 0,
+          "endProgress": 0.72,
+          "cursorPath": [
+            { "x": 78, "y": 18, "progress": 0 },
+            { "x": 38, "y": 34, "progress": 0.36 },
+            { "x": 26, "y": 52, "progress": 0.72 }
+          ]
+        },
+        {
+          "type": "click",
+          "startProgress": 0.76,
+          "target": { "x": 22, "y": 48, "width": 12, "height": 6, "label": "Pricing" },
+          "soundCue": "mouse-click"
+        },
+        {
+          "type": "pageChange",
+          "startProgress": 0.8,
+          "endProgress": 0.94,
+          "toUrl": "example.com/pricing",
+          "toStateId": "pricing",
+          "transitionMode": "push",
+          "soundCue": "page-turn"
+        }
       ],
-      "clicks": [{ "x": 26, "y": 52, "progress": 0.76 }]
     }
   }
 ]
@@ -449,13 +548,18 @@ Write `scripts/video/capture-demo.ts` that executes the planned capture tour:
 - After navigation, wait for a visible content selector (`h1, h2, img, svg`) with 8s timeout, then add 2000ms settle time for fonts/animations
 - **Verify content before capturing:** Check that the page has visible headings/images (not blank). If blank, wait 5s more and retry.
 - **Verify file size after capturing:** A blank page produces a PNG < 50KB. If file is too small, log a warning and retry with longer wait.
-- Perform any pre-capture actions (scroll to section, click tab, hover element, toggle pricing, expand accordion)
+- Read `site-map.json` and `interaction-plan.json`, then execute only the planned pre-capture steps needed to create each screenshot state
+- If a beat needs a true destination or result state, capture additional named states for that same moment instead of faking the change with one screenshot
+- Measure selector geometry for click, hover, nav, tab, and accordion targets when those beats need a visible target reaction in Remotion
 - Take `page.screenshot({ type: "png" })` — viewport only, not full-page
 - Dismiss cookie banners before capturing
-- Store motion metadata in `tour-plan.json`: camera, interaction, and caption copy
+- Store motion metadata in `tour-plan.json`: camera, ordered interaction beats, caption copy, transition mode, target geometry, URL changes, UI sound cues, and any additional captured states
 - Output: PNG files in `scripts/video/remotion/public/screenshots/`
+- Output: `scripts/video/site-map.json`
+- Output: `scripts/video/interaction-plan.json`
 - Output: `scripts/video/tour-plan.json` (no narration timestamps — timing comes from `narration-timing.json`)
 - If one narration section runs longer than 4–6 seconds, plan additional visual beats inside that same section instead of letting a single screenshot sit unchanged
+- Prefer a mix of interaction behaviors across the demo: some quiet, some scroll-led, some click-led, some state-led. Repetition should be justified by the product, not by the template
 
 CRITICAL — what NOT to do:
 - Don't use `recordVideo` — screen recordings look amateur with jittery scrolling and loading states
@@ -762,6 +866,8 @@ Final Acceptance Checklist:
 - [ ] No unchanged visual state lingers longer than 4–6 seconds without a clear reason
 - [ ] Every spoken claim is visually supported within about half a second
 - [ ] Captions explain why the moment matters, not just what page the viewer is on
+- [ ] Cursor intent is obvious before every click, hover, page change, or section jump
+- [ ] UI SFX are subtle, purposeful, and synchronized to the interaction beat
 - [ ] Music supports momentum and never masks narration
 - [ ] The pacing escalates cleanly from hook to demo to proof to CTA
 - [ ] The final CTA holds long enough to read after the last spoken line
@@ -776,6 +882,8 @@ Rework and rerender if any of these are true:
 - Two or more scenes feel rushed, mushy, or overlong
 - A screenshot is technically valid but compositionally weak, cluttered, or visually ambiguous
 - Music or SFX make any narration line harder to understand
+- A click, hover, or section jump happens without a clear visual payoff
+- The cursor path feels random, robotic, or disconnected from the narration beat
 - The export feels polished but low-energy or generic after the uninterrupted watch
 
 #### Preview and Render

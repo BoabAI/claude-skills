@@ -31,11 +31,11 @@ Save as `scripts/video/narration-sections.json`:
   { "sceneId": "title", "text": "Product name. A one-sentence description of what it does." },
   { "sceneId": "problem", "text": "The pain point it solves. One to two sentences." },
   { "sceneId": "transition", "text": "Here's how it works." },
-  { "sceneId": "demo-01", "screenshotId": "01-homepage-hero", "text": "Narration for the first screenshot..." },
-  { "sceneId": "demo-02", "screenshotId": "02-features", "text": "Narration for the second screenshot..." },
-  { "sceneId": "demo-03", "screenshotId": "03-product", "text": "Narration for the third screenshot..." },
-  { "sceneId": "demo-04", "screenshotId": "04-integrations", "text": "Narration for the fourth screenshot..." },
-  { "sceneId": "demo-05", "screenshotId": "05-pricing", "text": "Narration for the fifth screenshot..." },
+  { "sceneId": "demo-01", "beatId": "hero-claim", "primaryShotId": "01-homepage-hero", "text": "Narration for the first screenshot..." },
+  { "sceneId": "demo-02", "beatId": "proof-moment", "primaryShotId": "02-features", "text": "Narration for the second screenshot..." },
+  { "sceneId": "demo-03", "beatId": "workflow-moment", "primaryShotId": "03-product", "text": "Narration for the third screenshot..." },
+  { "sceneId": "demo-04", "beatId": "result-moment", "primaryShotId": "04-integrations", "text": "Narration for the fourth screenshot..." },
+  { "sceneId": "demo-05", "beatId": "cta-moment", "primaryShotId": "05-pricing", "text": "Narration for the fifth screenshot..." },
   { "sceneId": "stats", "text": "Key metrics or social proof." },
   { "sceneId": "cta", "text": "Call to action." }
 ]
@@ -52,7 +52,7 @@ Save as `scripts/video/narration-sections.json`:
 | `stats` | Key metrics / social proof | 1-2 sentences |
 | `cta` | Call to action | 1 sentence |
 
-Demo sections include a `screenshotId` that links to the primary entry in `tour-plan.json`. A polished demo can still use more than one visual beat inside that narration window.
+Demo sections should include a `beatId` that links to `interaction-plan.json` and a `primaryShotId` that links to the main entry in `tour-plan.json`. A polished demo can still use more than one visual beat or caption variant inside that narration window.
 
 ## Writing Style
 
@@ -105,9 +105,9 @@ Because each section is generated as a separate TTS file and then concatenated, 
 
 ```json
 [
-  { "sceneId": "demo-01", "screenshotId": "01-dashboard", "text": "See team performance in one glance, with the signal rising above the noise." },
-  { "sceneId": "demo-02", "screenshotId": "02-reports", "text": "From there, reports turn raw activity into billable clarity." },
-  { "sceneId": "demo-03", "screenshotId": "03-integrations", "text": "And because it plugs into the stack you already use, rollout stays simple." }
+  { "sceneId": "demo-01", "beatId": "dashboard-overview", "primaryShotId": "01-dashboard", "text": "See team performance in one glance, with the signal rising above the noise." },
+  { "sceneId": "demo-02", "beatId": "report-proof", "primaryShotId": "02-reports", "text": "From there, reports turn raw activity into billable clarity." },
+  { "sceneId": "demo-03", "beatId": "rollout-proof", "primaryShotId": "03-integrations", "text": "And because it plugs into the stack you already use, rollout stays simple." }
 ]
 ```
 
@@ -115,9 +115,9 @@ Because each section is generated as a separate TTS file and then concatenated, 
 
 ```json
 [
-  { "sceneId": "demo-01", "screenshotId": "01-dashboard", "text": "This is the dashboard and it shows the dashboard information." },
-  { "sceneId": "demo-02", "screenshotId": "02-reports", "text": "Here you can look at the reports page for reports." },
-  { "sceneId": "demo-03", "screenshotId": "03-integrations", "text": "There are integrations on this integrations screen." }
+  { "sceneId": "demo-01", "beatId": "dashboard-overview", "primaryShotId": "01-dashboard", "text": "This is the dashboard and it shows the dashboard information." },
+  { "sceneId": "demo-02", "beatId": "report-proof", "primaryShotId": "02-reports", "text": "Here you can look at the reports page for reports." },
+  { "sceneId": "demo-03", "beatId": "rollout-proof", "primaryShotId": "03-integrations", "text": "There are integrations on this integrations screen." }
 ]
 ```
 
@@ -172,6 +172,7 @@ Narration and captions should feel like one system:
 
 - Narration carries the main claim
 - Captions reinforce why the claim matters
+- Interaction beats should reinforce the same claim. If you add a click, hover, or section jump, it should help the spoken idea land instead of becoming decorative motion
 - If the narration segment is longer than one visual beat, let the caption progress once or twice instead of holding identical copy the whole time
 - Avoid captions that merely restate the page label
 

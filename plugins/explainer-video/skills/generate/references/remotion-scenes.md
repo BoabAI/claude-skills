@@ -121,9 +121,16 @@ The primary techniques for demo enhancement are:
 3. **Shot-specific camera choreography** — each screenshot gets its own scale, drift, and focal direction instead of the same Ken Burns move every time
 4. **Optional cursor cues** — use these only when they help the viewer understand the narrated focal point
 
+If the demo uses interaction beats, keep the rendering contract explicit:
+- `moveCursor` drives pointer motion from ordered path points
+- `click` and `hover` can trigger subtle target reactions and UI SFX
+- `scrollReveal` can drive intra-shot motion or a short handoff into the next shot
+- `pageChange` can update the URL bar or loading strip before the visual swap
+- `captionVariant` can change caption copy inside a single narration window
+
 #### DeviceFrame
 
-Takes `children` (the carousel) and a `tourPlan` for the animated URL bar. No video import needed.
+Takes `children` (the carousel) and a `tourPlan` for the animated URL bar. No video import needed. If a shot contains a `pageChange` beat, the URL bar should react during that beat rather than waiting for the next shot boundary.
 
 ```tsx
 import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig, spring } from "remotion";
@@ -265,6 +272,12 @@ Sequences screenshots for the demo section.
 
 Important: if narration sync is strict, avoid letting overlapping transitions silently shorten a shot's usable time. Prefer `Series` plus shot-level entry/exit animation when exact timing matters more than fancy cross-scene overlap. Internal demo transitions should usually be fast: **6–10 frames**.
 
+When a shot contains ordered interaction beats, the carousel should react to them:
+- `scrollReveal` can add vertical motion or a section-jump handoff
+- `pageChange` can trigger a flash, blur, or directional push before the next shot
+- `transitionStyle` should actually affect the beat treatment instead of sitting unused in the plan
+- Do not add random movement. Each authored reaction should support the narrated claim
+
 ```tsx
 import { TransitionSeries } from "@remotion/transitions";
 import { fade } from "@remotion/transitions/fade";
@@ -306,6 +319,8 @@ export const ScreenshotCarousel: React.FC<{ shots: Shot[] }> = ({ shots }) => (
 
 Animated caption labels that appear at the bottom-left of the device frame area. Each caption corresponds to a beat and uses spring animation for entrance, holds for the step duration, then fades out. This is the **primary** technique for guiding the viewer through a demo.
 Good captions do more than repeat the section name. They should explain what the viewer is supposed to notice and why it matters.
+
+If a shot contains `captionVariant` beats, update the caption copy inside the same narration window instead of freezing one caption card for the entire shot. This is especially useful after a click, hover, or section jump changes what the viewer should notice.
 
 ```tsx
 // No callout overlay component. Use captions, camera movement, and cleaner capture framing instead.

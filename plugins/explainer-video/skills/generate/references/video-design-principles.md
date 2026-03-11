@@ -609,6 +609,8 @@ The architecture:
 3. **Scene Captions** — captions explain why the moment matters, not just what page is visible (REQUIRED)
 4. **Optional browser framing** — URL bars and browser chrome are tools, not mandatory wrappers (OPTIONAL)
 5. **Shot-specific camera choreography** — use different motion patterns for `establish`, `push-in`, `detail-crop`, `split-proof`, and `result-state` (REQUIRED)
+6. **Structured interaction beats** — clicks, hovers, section jumps, page changes, and caption variants should come from ordered beat metadata, not ad-hoc animation guesses (REQUIRED when the demo is interactive)
+7. **Behavior diversity across the sequence** — some beats should stay quiet, some should scroll, some should transition states, and only some should use a visible pointer (REQUIRED)
 
 ### Screenshot timing: synced to measured narration audio (CRITICAL)
 
@@ -622,7 +624,7 @@ This approach guarantees sync because the duration of each scene is the **actual
 
 ### Screenshot Carousel (REQUIRED — primary technique)
 
-The DemoScene is a `TransitionSeries` or `Series` that sequences product screenshots inside a DeviceFrame or full-bleed crop. Each message beat's duration is derived from narration timing, with shot-specific movement and fast transitions between beats.
+The DemoScene is a `TransitionSeries` or `Series` that sequences product screenshots inside a DeviceFrame or full-bleed crop. Each message beat's duration is derived from narration timing, with shot-specific movement and fast transitions between beats. If the plan includes interaction beats, the carousel should also react to `scrollReveal`, `pageChange`, and `transitionMode` metadata rather than treating every shot as passive drift.
 
 ```tsx
 import { AbsoluteFill, Img, staticFile, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
@@ -684,9 +686,33 @@ const ScreenshotSlide: React.FC<{ shot: DemoShot }> = ({ shot }) => {
 
 Vary transitions: fade, slide-from-right, slide-from-bottom. Don't repeat the same transition for every screenshot, and keep internal demo transitions fast unless a major structural shift justifies a longer move.
 
+If a beat includes a click or page change:
+- the cursor should arrive before the click, not on the same frame
+- the UI response should land within about half a second
+- the follow-up state should prove the spoken claim instead of becoming decoration
+
+If a beat does not need a cursor:
+- do not add one anyway just to keep motion on screen
+- let framing, scroll motion, caption progression, or a state transition carry the beat
+- quiet beats are useful for hero claims, broad proof, and result holds
+
 ### Scene Captions (REQUIRED)
 
 Captions should tell the viewer why the moment matters. Page labels alone are not enough.
+
+If a single narration window contains multiple interaction beats, let the caption progress with the beat sequence. For example: promise -> click target -> resulting proof. Do not hold one caption card unchanged while the interaction meaning shifts.
+
+### Interaction-specific review
+
+Interactive demos only work when the behavior feels authored:
+- No random clicks without a story purpose
+- No hover or click when there is no visible payoff
+- No guessed target geometry when selectors can be measured
+- No cursor movement that fights narration timing or arrives too late
+- Page or section changes should support the spoken claim within about half a second
+- UI SFX should be subtle support, not the loudest thing in the moment
+- No repeated interaction template across most of the demo. If three or four adjacent beats use the same cursor grammar, redesign the sequence
+- No fake "navigation" where the URL or cursor changes but the underlying state does not
 
 ```tsx
 interface TourStep {
@@ -1098,6 +1124,9 @@ Approve only if all are true:
 6. Music supports momentum without masking narration
 7. The CTA lands clearly and holds long enough to read
 8. The whole piece feels distinctive rather than generic
+9. Cursor intent is obvious before every click, hover, or section jump
+10. Page and section changes feel believable rather than like random browsing
+11. Interaction SFX support the beat without sounding harsh, repetitive, or cartoonish
 
 ### Rework triggers
 
@@ -1108,3 +1137,6 @@ Reject and revise the render if any of these show up:
 - Two or more transitions feel mushy, overly long, or stylistically repetitive
 - Any screenshot is compositionally weak even if it is not blank
 - Captions state only where the viewer is instead of why the moment matters
+- A click or hover happens but the viewer cannot tell what payoff it created
+- The cursor path looks robotic, frantic, or disconnected from the spoken beat
+- UI sounds feel louder than the narration, too frequent, or disconnected from the interaction
