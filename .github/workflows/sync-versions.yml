@@ -5,8 +5,6 @@ on:
     branches: [main]
     paths:
       - 'plugins/*/skills/**'
-      - 'plugins/*/references/**'
-      - 'plugins/*/assets/**'
 
 jobs:
   bump-version:
@@ -41,12 +39,6 @@ jobs:
             # Update plugin.json
             jq --arg ver "$new_version" '.version = $ver' "$plugin_json" > /tmp/plugin.json \
               && mv /tmp/plugin.json "$plugin_json"
-
-            # Update SKILL.md frontmatter
-            skill_md="$plugin_dir/skills/$plugin_name/SKILL.md"
-            if [ -f "$skill_md" ]; then
-              sed -i "s/^version: .*/version: $new_version/" "$skill_md"
-            fi
 
             # Update marketplace.json
             jq --arg name "$plugin_name" --arg ver "$new_version" \
