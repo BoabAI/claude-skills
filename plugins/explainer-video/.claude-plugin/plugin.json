@@ -1,5 +1,13 @@
 {
   "name": "explainer-video",
-  "description": "Produce branded SMEC AI marketing explainer videos for any web app. Orchestrates Playwright screen recording, slide overlays, ElevenLabs narration, and FFmpeg assembly.",
-  "version": "3.0.0"
+  "description": "Produce professional animated marketing explainer videos for any web app. Orchestrates Playwright-powered product capture, animated Remotion scenes, ElevenLabs narration, background music, and sound effects.",
+  "version": "4.0.0",
+  "author": {
+    "name": "BoabAI",
+    "email": "sean@boab.ai"
+  },
+  "homepage": "https://github.com/BoabAI/claude-skills",
+  "repository": "https://github.com/BoabAI/claude-skills",
+  "license": "MIT",
+  "keywords": ["video", "explainer", "marketing", "playwright", "remotion", "react", "elevenlabs", "animation"]
 }

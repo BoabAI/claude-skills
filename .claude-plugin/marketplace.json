@@ -1,19 +1,17 @@
 {
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "boabai-skills",
+  "description": "Production-tested Claude Code skills from BoabAI",
   "owner": {
     "name": "BoabAI",
     "email": "sean@boab.ai"
-  },
-  "metadata": {
-    "description": "Production-tested Claude Code skills from BoabAI",
-    "version": "1.0.0"
   },
   "plugins": [
     {
       "name": "explainer-video",
       "source": "./plugins/explainer-video",
-      "description": "Produce branded marketing explainer videos for any web app. Orchestrates Playwright screen recording, slide overlays, ElevenLabs narration, and FFmpeg assembly.",
-      "version": "0.1.0",
+      "description": "Produce professional animated marketing explainer videos for any web app. Orchestrates Playwright screen recording, animated Remotion scenes with spring physics and transitions, ElevenLabs narration, background music, and sound effects.",
+      "version": "4.0.0",
       "author": {
         "name": "BoabAI"
       },
@@ -23,8 +21,10 @@
         "explainer",
         "marketing",
         "playwright",
-        "ffmpeg",
-        "elevenlabs"
+        "remotion",
+        "react",
+        "elevenlabs",
+        "animation"
       ],
       "category": "media"
     }

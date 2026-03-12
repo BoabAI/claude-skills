@@ -1,0 +1,16 @@
+node_modules/
+.DS_Store
+*.log
+bun.lock
+package.json
+
+# Generated video output and runtime artifacts
+output/
+scripts/
+
+# Local development-only folders
+.agents/
+.claude/
+
+# Cursor config (may contain API keys)
+.cursor/mcp.json

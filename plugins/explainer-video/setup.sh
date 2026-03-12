@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-# BoabAI Explainer Video Skill -- Setup
+# Explainer Video Plugin -- Setup (v4.0.0 Remotion)
 # Run once after installing to check prerequisites and configure optional services.
 
 BOLD='\033[1m'
@@ -21,36 +21,51 @@ CLAUDE_SETTINGS="$HOME/.claude/settings.json"
 ISSUES=0
 
 # -------------------------------------------------------------------
-header "Explainer Video Skill -- Setup"
+header "Explainer Video Plugin -- Setup (v4.0.0 Remotion)"
 echo -e "${DIM}Checks prerequisites and configures optional services.${NC}"
 
 # -------------------------------------------------------------------
 header "1. Prerequisites"
 
-# FFmpeg
-if command -v ffmpeg &>/dev/null; then
-  ok "FFmpeg $(ffmpeg -version 2>&1 | head -1 | awk '{print $3}')"
+# Node.js
+if command -v node &>/dev/null; then
+  NODE_VER=$(node --version)
+  NODE_MAJOR=$(echo "$NODE_VER" | sed 's/v//' | cut -d. -f1)
+  if [ "$NODE_MAJOR" -ge 18 ]; then
+    ok "Node.js $NODE_VER"
+  else
+    fail "Node.js $NODE_VER (v18+ required for Remotion)"
+    ISSUES=$((ISSUES + 1))
+  fi
 else
-  fail "FFmpeg not found"
-  echo -e "     Install: ${DIM}brew install ffmpeg${NC} (macOS) or ${DIM}apt install ffmpeg${NC} (Linux)"
+  fail "Node.js not found (v18+ required)"
+  echo -e "     Install: ${DIM}https://nodejs.org${NC} or ${DIM}nvm install 18${NC}"
+  ISSUES=$((ISSUES + 1))
+fi
+
+# npm
+if command -v npm &>/dev/null; then
+  ok "npm $(npm --version)"
+else
+  fail "npm not found"
   ISSUES=$((ISSUES + 1))
 fi
 
 # Playwright
-if command -v bunx &>/dev/null && bunx playwright --version &>/dev/null 2>&1; then
-  ok "Playwright $(bunx playwright --version 2>&1)"
-elif command -v npx &>/dev/null && npx playwright --version &>/dev/null 2>&1; then
+if command -v npx &>/dev/null && npx playwright --version &>/dev/null 2>&1; then
   ok "Playwright $(npx playwright --version 2>&1)"
+elif command -v bunx &>/dev/null && bunx playwright --version &>/dev/null 2>&1; then
+  ok "Playwright $(bunx playwright --version 2>&1)"
 else
-  fail "Playwright not found"
-  echo -e "     Install: ${DIM}bun add -d playwright && bunx playwright install chromium${NC}"
-  ISSUES=$((ISSUES + 1))
+  warn "Playwright not found (will be installed during pipeline)"
+  echo -e "     Install: ${DIM}npm add -D playwright && npx playwright install chromium${NC}"
 fi
 
 # Chromium for Playwright
 CHROMIUM_PATH=""
 for p in "$HOME/Library/Caches/ms-playwright/chromium-"*/chrome-mac/Chromium.app \
-         "$HOME/.cache/ms-playwright/chromium-"*/chrome-linux/chrome; do
+         "$HOME/.cache/ms-playwright/chromium-"*/chrome-linux/chrome \
+         "$HOME/Library/Caches/ms-playwright/chromium-"*; do
   if [ -e "$p" ]; then CHROMIUM_PATH="$p"; break; fi
 done
 if [ -n "$CHROMIUM_PATH" ]; then
@@ -80,27 +95,24 @@ if [[ "$has_elevenlabs" =~ ^[Yy] ]]; then
   if [ -z "$elevenlabs_key" ]; then
     warn "No key entered, skipping ElevenLabs setup"
   else
-    # Ensure settings directory exists
     mkdir -p "$(dirname "$CLAUDE_SETTINGS")"
 
     if [ -f "$CLAUDE_SETTINGS" ]; then
-      # Add or update ElevenLabs MCP server in existing settings
       jq --arg key "$elevenlabs_key" '
         .mcpServers.elevenlabs = {
-          "command": "npx",
-          "args": ["-y", "@anthropic-ai/elevenlabs-mcp-server"],
+          "command": "uvx",
+          "args": ["elevenlabs-mcp"],
           "env": { "ELEVENLABS_API_KEY": $key }
         }
       ' "$CLAUDE_SETTINGS" > /tmp/claude-settings.json \
         && mv /tmp/claude-settings.json "$CLAUDE_SETTINGS"
     else
-      # Create new settings file
       cat > "$CLAUDE_SETTINGS" << SETTINGSEOF
 {
   "mcpServers": {
     "elevenlabs": {
-      "command": "npx",
-      "args": ["-y", "@anthropic-ai/elevenlabs-mcp-server"],
+      "command": "uvx",
+      "args": ["elevenlabs-mcp"],
       "env": {
         "ELEVENLABS_API_KEY": "$elevenlabs_key"
       }
@@ -114,7 +126,7 @@ SETTINGSEOF
     echo -e "     ${DIM}Restart Claude Code to activate${NC}"
   fi
 else
-  warn "Skipping ElevenLabs -- skill will use edge-tts for narration"
+  warn "Skipping ElevenLabs -- plugin will use edge-tts for narration"
 fi
 
 # -------------------------------------------------------------------
@@ -141,7 +153,7 @@ fi
 header "Summary"
 
 if [ $ISSUES -eq 0 ]; then
-  echo -e "  ${GREEN}All prerequisites met.${NC} Run ${BOLD}/explainer-video${NC} to get started."
+  echo -e "  ${GREEN}All prerequisites met.${NC} Run ${BOLD}/explainer-video:generate${NC} to get started."
 else
   echo -e "  ${YELLOW}$ISSUES issue(s) found.${NC} Install missing prerequisites above, then re-run this script."
 fi
