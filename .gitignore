@@ -8,10 +8,9 @@ package.json
 output/
 scripts/
 
-# Local skill copies (originals live in plugins/)
-.agents/skills/frontend-design/
-.agents/skills/remotion-best-practices/
-.claude/skills/
+# Local development-only folders
+.agents/
+.claude/
 
 # Cursor config (may contain API keys)
 .cursor/mcp.json
