@@ -204,8 +204,8 @@ export const DeviceFrame: React.FC<DeviceFrameProps> = ({ children, delay = 0, t
             {currentUrl}
           </div>
         </div>
-        {/* Content area — carousel renders here */}
-        <div style={{ overflow: "hidden", height: CONTENT_HEIGHT }}>
+        {/* Content area — white background prevents dark screenshots from blending with dark video bg */}
+        <div style={{ overflow: "hidden", height: CONTENT_HEIGHT, backgroundColor: "#FFFFFF" }}>
           {children}
         </div>
       </div>
@@ -272,6 +272,8 @@ Sequences screenshots for the demo section.
 
 Important: if narration sync is strict, avoid letting overlapping transitions silently shorten a shot's usable time. Prefer `Series` plus shot-level entry/exit animation when exact timing matters more than fancy cross-scene overlap. Internal demo transitions should usually be fast: **6–10 frames**.
 
+**CRITICAL — TransitionSeries overlap compensation:** `TransitionSeries` overlaps adjacent sequences, making the effective visual duration = `sum(shot_durations) - (num_transitions * TRANSITION_FRAMES)`. If the parent Sequence gives DemoScene `DEMO_TOTAL` frames, the TransitionSeries must also fill `DEMO_TOTAL` frames. Add `(num_transitions * TRANSITION_FRAMES)` extra frames to the last shot's `durationInFrames` to compensate. Without this, the demo ends with a visible dark/blank gap.
+
 When a shot contains ordered interaction beats, the carousel should react to them:
 - `scrollReveal` can add vertical motion or a section-jump handoff
 - `pageChange` can trigger a flash, blur, or directional push before the next shot
@@ -296,23 +298,34 @@ const TRANSITION_FRAMES = 8;
 
 const transitions = [fade(), slide({ direction: "from-right" }), fade(), slide({ direction: "from-left" })];
 
-export const ScreenshotCarousel: React.FC<{ shots: Shot[] }> = ({ shots }) => (
-  <TransitionSeries>
-    {shots.map((shot, i) => (
-      <>
-        {i > 0 && (
-          <TransitionSeries.Transition
-            presentation={transitions[i % transitions.length]}
-            timing={{ type: "in-out", inDuration: TRANSITION_FRAMES, outDuration: TRANSITION_FRAMES }}
-          />
-        )}
-        <TransitionSeries.Sequence key={i} durationInFrames={shot.durationInFrames}>
-          <ScreenshotSlide file={shot.file} shotArchetype={shot.shotArchetype} />
-        </TransitionSeries.Sequence>
-      </>
-    ))}
-  </TransitionSeries>
-);
+export const ScreenshotCarousel: React.FC<{ shots: Shot[] }> = ({ shots }) => {
+  // Compensate for TransitionSeries overlap: extend last shot so effective duration fills parent
+  const numTransitions = shots.length - 1;
+  const overlapCompensation = numTransitions * TRANSITION_FRAMES;
+  const adjustedShots = shots.map((shot, i) =>
+    i === shots.length - 1
+      ? { ...shot, durationInFrames: shot.durationInFrames + overlapCompensation }
+      : shot
+  );
+
+  return (
+    <TransitionSeries>
+      {adjustedShots.map((shot, i) => (
+        <>
+          {i > 0 && (
+            <TransitionSeries.Transition
+              presentation={transitions[i % transitions.length]}
+              timing={{ type: "in-out", inDuration: TRANSITION_FRAMES, outDuration: TRANSITION_FRAMES }}
+            />
+          )}
+          <TransitionSeries.Sequence key={i} durationInFrames={shot.durationInFrames}>
+            <ScreenshotSlide file={shot.file} shotArchetype={shot.shotArchetype} />
+          </TransitionSeries.Sequence>
+        </>
+      ))}
+    </TransitionSeries>
+  );
+};
 ```
 
 ### Demo Captions

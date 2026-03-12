@@ -651,6 +651,30 @@ This approach guarantees sync because the duration of each scene is the **actual
 
 **Do NOT** use a fixed duration per screenshot. Do NOT use estimated timestamps. If the narrator's measured audio for a proof segment is 8.12 seconds, the visual sequence for that segment must fill exactly 8.12 seconds, whether that is one shot or three.
 
+### Screenshot Visibility Against Video Background (CRITICAL)
+
+When the video uses a dark theme (dark `bgPrimary`), screenshots from dark-themed websites become invisible. The dark screenshot blends with the dark device frame background, which blends with the dark video background — producing what appears to be a blank/black frame.
+
+**Mandatory safeguards:**
+
+1. **White content area background** — the device frame's content area (where screenshots render) MUST have `backgroundColor: "#FFFFFF"`. This provides a guaranteed light backdrop behind every screenshot, regardless of the screenshot's own theme. Even dark screenshots will have a visible white border/frame effect.
+
+2. **Screenshot brightness verification** — during Phase 5, check every screenshot's dominant background color against the video's `bgPrimary`. Reject and recapture screenshots whose backgrounds are within ~60 luminance units of the video's background.
+
+3. **Prefer light-background pages** — when multiple capture options exist, prefer pages with white/light backgrounds. Scroll past dark hero sections to lighter content areas.
+
+### TransitionSeries Overlap Compensation (CRITICAL)
+
+`TransitionSeries` overlaps adjacent sequences during transitions, making the effective visual duration shorter than the sum of shot durations:
+
+```
+effective_duration = sum(shot_durations) - (num_transitions * transition_frames)
+```
+
+If the parent `<Sequence>` allocates `DEMO_TOTAL` frames but the TransitionSeries only fills `DEMO_TOTAL - overlap` frames, the remaining frames show the raw dark background — a visible blank gap at the end of the demo.
+
+**Fix:** Add `(num_transitions * transition_frames)` extra frames to the last shot's `durationInFrames`. This ensures the TransitionSeries effective duration exactly matches the parent Sequence.
+
 ### Screenshot Carousel (REQUIRED — primary technique)
 
 The DemoScene is a `TransitionSeries` or `Series` that sequences product screenshots inside a DeviceFrame or full-bleed crop. Each message beat's duration is derived from narration timing, with shot-specific movement and fast transitions between beats. If the plan includes interaction beats, the carousel should also react to `scrollReveal`, `pageChange`, and `transitionMode` metadata rather than treating every shot as passive drift.

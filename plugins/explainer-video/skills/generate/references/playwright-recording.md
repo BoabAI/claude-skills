@@ -427,6 +427,26 @@ async function captureScreenshot(
     await page.screenshot({ path: filePath, type: "png" });
   }
 
+  // Verify brightness — dark screenshots blend with dark video backgrounds
+  const dominantBrightness = await page.evaluate(() => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 64;
+    canvas.height = 36;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return 128;
+    const body = document.body;
+    const bg = getComputedStyle(body).backgroundColor;
+    const match = bg.match(/\d+/g);
+    if (match) {
+      const [r, g, b] = match.map(Number);
+      return Math.round(0.299 * r + 0.587 * g + 0.114 * b);
+    }
+    return 128;
+  });
+  if (dominantBrightness < 60) {
+    console.warn(`⚠ Screenshot ${id} has dark background (luminance: ${dominantBrightness}). This may blend with dark video backgrounds. Consider scrolling to lighter content or using a different page.`);
+  }
+
   const beats = [];
   for (const beat of moment.beats) {
     beats.push(await resolveBeat(page, beat));
@@ -615,11 +635,35 @@ Since screenshots are static, all timing is controlled in Remotion and **must ma
 
 ---
 
+## Handling Dark-Themed Websites
+
+Many modern websites use dark hero sections (navy, charcoal, black backgrounds) or have entirely dark themes. These screenshots become invisible when placed inside a dark-themed video — the screenshot blends into the device frame background and the video's `bgPrimary` color, appearing as a blank/black frame.
+
+**Detection strategies:**
+
+1. **Check page background luminance** after navigation using `getComputedStyle(document.body).backgroundColor`. If the RGB luminance is below ~60, the page is likely dark-themed.
+
+2. **Check dominant visual area** — even if the body background is dark, some pages have a light-background content panel (e.g., an embedded app preview, a card grid, a product interface). These internal light areas may still render well.
+
+3. **Watch for dark hero patterns** — many SaaS sites have a dark gradient hero at the top (the first viewport) but switch to light backgrounds below. If the hero is dark, scroll past it to lighter content sections.
+
+**Remediation:**
+
+- **Scroll past dark heroes** — use `window.scrollBy(0, window.innerHeight * 2)` or `scrollToSection()` to navigate below dark headers into lighter product content
+- **Use alternative pages** — product feature pages, docs, templates, pricing, and integrations pages often have light backgrounds even when the homepage is dark
+- **Capture specific product UI sections** — many SaaS sites embed light-themed product previews within dark marketing pages. Target these inner UI areas
+- **Avoid homepage dark heroes** as the primary screenshot when the video uses a dark theme. The combined effect of dark screenshot + dark device frame + dark video background = invisible content
+
+**Verification:** After capturing all screenshots, visually inspect every PNG against the video's intended `bgPrimary` color. If a screenshot would be hard to distinguish from the background at a glance, recapture from a lighter section or page.
+
+---
+
 ## Anti-Patterns
 
 - **Don't use `recordVideo`** — screen recordings look amateur. Screenshots + Remotion animation is superior.
 - **Don't capture full-page screenshots** — viewport-only (1920×1080) matches the Remotion frame. Full-page screenshots create letterboxing issues.
 - **Don't capture blank/loading pages** — verify content is visible before capturing. Check file size (< 50KB = likely blank). Retry with longer wait if needed.
+- **Don't capture dark-themed pages for dark-themed videos** — dark screenshots blend with dark device frames and dark video backgrounds, appearing completely blank. Always verify brightness contrast.
 - **Don't rely solely on `networkidle`** — many sites have persistent connections that prevent it from resolving. Use `domcontentloaded` + `waitForSelector` + settle time instead.
 - **Don't use arbitrary or estimated screenshot durations** — derive each screenshot's display time from `narration-timing.json` (measured audio). If narration and visuals are out of sync, the video feels broken.
 - **Don't put narration timestamps in tour-plan.json** — timestamps belong in `narration-timing.json`, which is generated from measured audio. The tour plan only contains screenshot metadata.

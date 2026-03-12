@@ -622,6 +622,26 @@ Write `scripts/video/capture-demo.ts` that executes the planned capture tour:
   - a cookie banner, consent modal, chat launcher, or sticky announcement obscures the content
   - the screenshot shows only a partial proof module with awkward whitespace above it
 
+#### CRITICAL — Screenshot Brightness & Contrast Verification
+
+Many websites (especially developer tools, creative platforms, and modern SaaS) use dark-themed hero sections or entire dark-themed pages. When the video itself uses a dark background (`bgPrimary`), dark screenshots become invisible — they blend into the video background and appear as blank/black frames.
+
+**Before proceeding to Phase 6, verify EVERY screenshot for contrast against the video background:**
+
+1. **Visual inspection** — open each PNG and check: does the screenshot have clearly visible content with sufficient contrast? A screenshot that is mostly dark navy, black, or deep purple will disappear against a dark video background.
+
+2. **Dark-theme detection** — if the website's hero section or captured page has a dark background (navy, black, charcoal), either:
+   - Scroll past the dark hero to lighter content sections below
+   - Use a different page that has a light/white background
+   - Capture a specific product UI section that has its own light internal background (e.g., an embedded app preview, card grid, or content area)
+
+3. **Reject and recapture** if:
+   - The screenshot's dominant background color is within ~60 luminance units of the video's `bgPrimary`
+   - The screenshot would be hard to distinguish from the dark device frame and video background
+   - The page has a dark hero that takes up >50% of the viewport — scroll past it or use a different page
+
+4. **Prefer light-background pages** for demo screenshots when the video uses a dark theme. Good candidates: product feature pages, documentation, templates/marketplace, pricing pages with light backgrounds, integrations pages. Bad candidates: homepage dark heroes, dark-themed landing sections, pages dominated by video/animation backgrounds.
+
 CRITICAL — what NOT to do:
 - Don't use `recordVideo` — screen recordings look amateur with jittery scrolling and loading states
 - Don't capture loading/blank states — verify visible content before every capture
@@ -634,6 +654,7 @@ CRITICAL — what NOT to do:
 - Don't use generic top-of-page screenshots when a more product-specific state is available
 - Don't let a screenshot progress to Remotion if the focal content is weak, cropped badly, or visually ambiguous
 - Don't let one unchanged visual state sit for longer than 4–6 seconds unless there is a compelling reason
+- Don't use dark-themed page screenshots when the video has a dark background — they will blend together and appear blank
 
 Run:
 ```bash
@@ -795,6 +816,7 @@ A standard explainer video includes these scene categories. **Base each scene on
 - Background components designed to match `style.backgroundType` — could be gradient mesh, geometric patterns, noise texture, layered transparencies, or anything the creative direction demands
 - Backgrounds must have **constant visible motion** — never static gradients
 - Device frame styling matches the overall aesthetic (dark chrome for dark themes, light for light, etc.)
+- Device frame content area (where screenshots render) MUST have `backgroundColor: "#FFFFFF"` — this prevents dark screenshots from blending with the video's dark background and ensures visibility regardless of the screenshot's theme
 - Device frame uses **1680px width** at 1920x1080 resolution
 - Animation spring configs and timing match `style.motionStyle`
 - Do not place highlight boxes or callout rectangles over screenshots; emphasis should come from shot selection, camera intent, and captions
@@ -824,6 +846,29 @@ Arrange scenes with the sequencing primitive that best preserves sync.
 - Choose transitions that match the creative direction's motion style, but never at the expense of timing accuracy.
 
 **Important:** Transitions overlap adjacent scenes, so total duration = sum of sequence durations minus sum of transition durations.
+
+#### CRITICAL — TransitionSeries Overlap Compensation
+
+When using `TransitionSeries` for the demo screenshot carousel, transitions eat frames from the total duration. For N shots with T-frame transitions, the effective visual duration is:
+
+```
+effective_duration = sum(shot_durations) - (N - 1) * T
+```
+
+If the parent `<Sequence>` gives the DemoScene more frames than the TransitionSeries fills, the leftover frames show the raw background (usually dark) — creating a visible blank/black gap at the end of the demo.
+
+**The fix:** Extend the LAST shot's `durationInFrames` by the total overlap amount so the TransitionSeries fills the full parent Sequence:
+
+```tsx
+const TRANS_FRAMES = 8;
+const NUM_TRANSITIONS = shots.length - 1;
+const OVERLAP_COMPENSATION = NUM_TRANSITIONS * TRANS_FRAMES;
+
+// In the shots array, add OVERLAP_COMPENSATION to the last shot's duration:
+{ ...lastShot, durationInFrames: lastShot.durationInFrames + OVERLAP_COMPENSATION }
+```
+
+This ensures `effective_duration = sum(adjusted_durations) - overlap = DEMO_TOTAL`. Always verify this formula when using `TransitionSeries` — a timing mismatch of even 40 frames (1.3s) produces a visible dark gap.
 
 **CRITICAL — Audio-visual sync via narration-timing.json:**
 
@@ -889,6 +934,9 @@ Quality Checklist:
 - [ ] Each scene's durationInFrames matches its measured narration segment in narration-timing.json
 - [ ] Each demo screenshot's durationInFrames matches its demo-* segment in narration-timing.json
 - [ ] No blank/empty screenshots — verify every PNG has visible content before rendering
+- [ ] No dark-on-dark screenshots — every screenshot has sufficient contrast against the video's bgPrimary color
+- [ ] Device frame content area has a white (#FFFFFF) background behind screenshots
+- [ ] TransitionSeries overlap is compensated — last shot duration includes (N-1)*TRANS_FRAMES extra frames
 - [ ] Demo emphasis comes from shot choice, camera movement, and captions rather than highlight boxes over the UI
 - [ ] Every non-demo scene has at least one decorative element besides text
 - [ ] Light leaks are either absent or used in at most 1 scene as a brief flash (10–18 frames, opacity ≤ 0.20) — never a sustained glow across the full scene
@@ -943,8 +991,10 @@ Rework and rerender if any of these are true:
 - The narration references a feature before it appears on screen
 - Two or more scenes feel rushed, mushy, or overlong
 - A screenshot is technically valid but compositionally weak, cluttered, or visually ambiguous
+- A screenshot has a dark background that blends with the video's dark theme, appearing blank or invisible
 - A screenshot starts in the middle of a section instead of at a clear section boundary
 - A cookie banner, consent modal, or sticky widget remains visible in any captured product shot
+- The demo section has a visible dark gap between the last screenshot and the next scene (TransitionSeries overlap not compensated)
 - Music or SFX make any narration line harder to understand
 - The voice sounds robotic, overly even, or obviously synthetic
 - Sentence rhythm repeats so consistently that the delivery feels machine-generated
