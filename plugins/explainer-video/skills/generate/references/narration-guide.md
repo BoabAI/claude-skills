@@ -66,6 +66,34 @@ Demo sections should include a `beatId` that links to `interaction-plan.json` an
 - **Lead with verbs.** Prefer "Track work instantly" over "The dashboard provides tracking capabilities"
 - **Avoid page-tour phrasing.** Don't say "On the homepage..." or "Here on the pricing page..." unless the location itself matters
 
+## Human-Like Delivery
+
+The script should sound like a real narrator speaking to a real audience, not like written copy being read by a machine.
+
+### Write for speech
+
+- Prefer contractions when they fit the brand: "it's", "you're", "here's", "doesn't"
+- Vary sentence length so the cadence rises and falls naturally
+- Use commas and periods to create subtle breathing room
+- Keep clauses clean enough to say in one breath
+- Rewrite any line that feels stiff when read aloud
+
+### Avoid robotic cadence
+
+These patterns often make even a good TTS model sound artificial:
+
+- Every sentence has the same length
+- Every sentence starts with the same structure
+- Multiple feature labels stacked into one line
+- Copy that sounds like bullet points joined by commas
+- Overly formal brochure phrasing where spoken phrasing would be simpler
+
+Bad:
+- "The platform delivers meetings, chat, docs, phone, analytics, automation, and collaboration for modern teams."
+
+Better:
+- "Bring meetings, chat, docs, and phone into one workflow. So the team spends less time switching and more time moving."
+
 ## Demo Copy Rules
 
 - **Write demo narration like commercial copy, not product training**
@@ -100,6 +128,7 @@ Because each section is generated as a separate TTS file and then concatenated, 
 - **Avoid repeating openers:** Don't start two consecutive sections the same way.
 - **Consistent punctuation:** End every section with a period. Avoid exclamation marks — they create tonal spikes between segments.
 - **Natural breathing room:** The concatenation pipeline should usually add only 120-180ms of silence between segments. Write section endings that feel complete without inviting a long pause.
+- **Natural spoken phrasing:** If a bridge line feels like narration glue rather than something a person would say, simplify it.
 
 ### Good example (flows naturally across sections)
 
@@ -133,6 +162,8 @@ Because each section is generated as a separate TTS file and then concatenated, 
 
 Do NOT default to a hardcoded voice. The voice should match the platform's audience and tone.
 
+The default target is **human-like commercial narration**. A voice that is merely understandable is not good enough for a polished product video.
+
 ### Voice matching heuristic
 
 | Platform Type | Voice Style | Search Terms |
@@ -151,9 +182,32 @@ Do NOT default to a hardcoded voice. The voice should match the platform's audie
 - `speed`: 1.03–1.10 for most SaaS and product marketing videos
 - Slow down only when the audience expects a calmer cadence or the vocabulary is unusually dense
 
+### Voice audition checklist
+
+Before generating the full narration, test the chosen voice on:
+
+- one hook line
+- one dense proof/demo line
+- one CTA line
+
+Reject the voice if:
+
+- pauses feel mechanical
+- emphasis lands in the wrong place
+- the read sounds flat or sleepy
+- the same cadence repeats across all three lines
+- it sounds like a default assistant voice rather than a human narrator
+
 ### Consistency across sections
 
 All sections MUST use the same `voice_id`, `stability`, `similarity_boost`, `style`, and `speed`. The text itself naturally varies the tone (problem sections feel heavier, CTAs feel upbeat) — you don't need different TTS settings per section.
+
+### Fallback policy
+
+- Prefer premium neural voices by default
+- Do not silently downgrade to OS speech or low-expression fallback TTS
+- If only fallback TTS is available, tell the user the narration will sound less human before generating it
+- If fallback TTS is used, compensate by simplifying copy and tightening phrasing, then run an extra audio review pass
 
 ## Timing
 

@@ -117,12 +117,13 @@ For **local apps** where you have source code access, supplement or replace scra
 
 ### Dismiss Cookie Banners and Overlays
 
-Run this before any discovery or capture:
+Run this before any discovery or capture, then run it again after each navigation and after any section-alignment scroll:
 
 ```typescript
 async function dismissOverlays(page: Page) {
   const dismissSelectors = [
     'button:has-text("Accept")',
+    'button:has-text("Accept cookies")',
     'button:has-text("Got it")',
     'button:has-text("Close")',
     'button:has-text("Dismiss")',
@@ -139,6 +140,11 @@ async function dismissOverlays(page: Page) {
   }
 }
 ```
+
+Important:
+- Do not assume one overlay pass is enough. Consent UIs often appear after hydration, route changes, or delayed animation.
+- If an overlay still obstructs the viewport after click attempts, hide or remove the blocking element before capture rather than accepting a compromised shot.
+- Reject any screenshot that still contains cookie, consent, privacy, or chat UI over the product.
 
 ### Phase B: Beat Planning
 
@@ -308,6 +314,7 @@ Important:
 - When a beat has a real target, keep the selector until capture time so Playwright can measure geometry instead of guessing coordinates
 - Plan a mix of behaviors across adjacent shots. Avoid emitting the same `moveCursor -> hover/click -> next shot` structure over and over
 - Prefer multi-state moments when the story depends on a visible change, such as a page destination, selected tab, expanded panel, or revealed result
+- When a beat depends on a scrolled capture, define the framing target explicitly: the section start, the heading plus proof module, or the selected state. Do not leave the final framing to a browser default scroll position.
 
 ### Phase C: Capture Screenshots
 
@@ -516,11 +523,15 @@ The video scroll illusion should come from authored `scrollReveal` beats in `tou
 - Use `type: "png"` (not jpeg) for crisp text rendering
 - `deviceScaleFactor: 2` gives 3840×2160 screenshots that Remotion downscales to 1920×1080 — much sharper than 1x
 - **Wait strategy:** Use `domcontentloaded` + `waitForSelector("h1, h2, img")` + `waitForTimeout(2000)`. Don't rely on `networkidle` alone — many sites have persistent connections (analytics, websockets) that prevent it from resolving.
+- **Frame sections from their start:** Measure the target heading or section container, then align the viewport so the heading lands near the top safe area. Avoid captures that begin halfway through a card grid, review strip, or feature block.
+- **Compensate for sticky UI:** Measure fixed or sticky headers before scrolling and subtract that height from the target scroll position so the section heading remains visible.
+- **Re-run overlay dismissal after framing:** A clean navigation state does not guarantee a clean capture state.
 - **Verify content before capturing:** Check that the page has visible headings, images, or content. Blank pages produce PNGs under 50KB — detect and retry.
 - For pages with lazy-loaded content, scroll to trigger loading then scroll back before capturing
 - **Always check the PNGs visually** before proceeding to the Remotion render. A blank screenshot wastes an entire render cycle.
 - Do not plan highlight boxes or callout rectangles over the screenshot. Use stronger framing, captions, and shot choreography instead.
 - Reject screenshots that are technically valid but compositionally weak: cropped focal content, poor spacing, confusing scroll position, or no clear subject.
+- Reject screenshots where the section heading is clipped, the frame starts mid-section, or a consent/chat widget still overlaps the viewport.
 - If a narration beat lasts more than 4–6 seconds, capture a second visual beat for that same message moment.
 - If a click or hover beat has a real selector, measure its target box at capture time and store normalized geometry in `tour-plan.json`.
 - Keep a clear separation between capture-time steps and in-video interaction beats. Never rely on a loose action string to do both jobs.

@@ -501,14 +501,14 @@ export const IntroScene: React.FC = () => {
         }} />
       </AbsoluteFill>
 
-      {/* LAYER 4: Film overlay */}
-      <FilmOverlay showLightLeak lightLeakSeed={42} />
+      {/* LAYER 4: Film overlay — light leak is a brief flash only (16 frames), not sustained */}
+      <FilmOverlay showLightLeak lightLeakSeed={42} lightLeakStartFrame={8} />
     </AbsoluteFill>
   );
 };
 ```
 
-Notice: 3 glow orbs, floating particles, geometric border drawing, logo with glow halo + blur-in entrance, light leak overlay. This is the minimum richness for an intro.
+Notice: 3 glow orbs, floating particles, geometric border drawing, logo with glow halo + blur-in entrance, brief light leak flash (16 frames). This is the minimum richness for an intro.
 
 ### TitleScene — Bold Typography with Decorative Depth
 
@@ -540,7 +540,7 @@ export const TitleScene: React.FC = () => {
   const headlineBlur = interpolate(headlineProgress, [0, 1], [16, 0]);
   const headlineY = interpolate(headlineProgress, [0, 1], [30, 0]);
 
-  // Gradient shimmer on headline
+  // Decorative sweep behind the headline
   const shimmerX = interpolate(frame, [headlineDelay + 15, headlineDelay + 50], [-100, 200], {
     extrapolateLeft: "clamp", extrapolateRight: "clamp",
   });
@@ -617,19 +617,38 @@ export const TitleScene: React.FC = () => {
           </span>
         </div>
 
-        {/* Headline — gradient shimmer text, blur-in entrance */}
-        <div style={{
-          fontSize: 72, fontWeight: 800, lineHeight: 1.1,
-          fontFamily: font.display, maxWidth: 900,
-          background: `linear-gradient(90deg, ${colors.textPrimary} 0%, ${colors.accent} 45%, ${colors.textPrimary} 55%, ${colors.textPrimary} 100%)`,
-          backgroundSize: "200% 100%",
-          backgroundPosition: `${shimmerX}% 0`,
-          WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text",
-          opacity: headlineProgress,
-          filter: `blur(${headlineBlur}px)`,
-          transform: `translateY(${headlineY}px)`,
-        }}>
-          {branding.tagline}
+        {/* Headline — solid readable text with a decorative sweep behind it */}
+        <div style={{ position: "relative", maxWidth: 900 }}>
+          <div
+            style={{
+              position: "absolute",
+              left: `${shimmerX}%`,
+              top: "50%",
+              width: 260,
+              height: 96,
+              borderRadius: 999,
+              background: `linear-gradient(90deg, transparent 0%, ${colors.accent}22 35%, ${colors.accentSecondary ?? colors.accent}18 55%, transparent 100%)`,
+              filter: "blur(24px)",
+              transform: "translate(-50%, -50%)",
+              opacity: headlineProgress * 0.9,
+            }}
+          />
+          <div
+            style={{
+              position: "relative",
+              fontSize: 72,
+              fontWeight: 800,
+              lineHeight: 1.1,
+              fontFamily: font.display,
+              color: colors.textPrimary,
+              textShadow: `0 0 28px ${colors.accent}18`,
+              opacity: headlineProgress,
+              filter: `blur(${headlineBlur}px)`,
+              transform: `translateY(${headlineY}px)`,
+            }}
+          >
+            {branding.tagline}
+          </div>
         </div>
 
         {/* Accent line under headline */}
@@ -667,7 +686,7 @@ export const TitleScene: React.FC = () => {
 };
 ```
 
-Key design moves: asymmetric-left layout (not centered), gradient shimmer headline, accent line drawing, decorative orbs + geometric shapes, staggered entrance timing, URL with glow.
+Key design moves: asymmetric-left layout (not centered), solid headline with decorative light sweep, accent line drawing, decorative orbs + geometric shapes, staggered entrance timing, URL with glow.
 
 ### ProblemScene — Cards with Visual Hierarchy (NOT a Bullet List)
 
@@ -1139,8 +1158,8 @@ export const OutroScene: React.FC = () => {
         </div>
       </AbsoluteFill>
 
-      {/* LAYER 4 */}
-      <FilmOverlay showLightLeak lightLeakSeed={99} />
+      {/* LAYER 4 — no light leak on outro; grain + vignette is sufficient */}
+      <FilmOverlay />
     </AbsoluteFill>
   );
 };

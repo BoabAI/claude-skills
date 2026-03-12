@@ -151,7 +151,7 @@ The actual text, images, device frames — positioned using the scene's layout a
 **Content must NEVER be bare text on a gradient.** Use these containers:
 
 - **Glassmorphism cards** — `background: rgba(255,255,255,0.03-0.06)`, `backdropFilter: blur(20-40px)`, `border: 1px solid rgba(255,255,255,0.06-0.1)`, `borderRadius: 14-20px`
-- **Gradient text fills** — `WebkitBackgroundClip: "text"` with accent gradient for headlines
+- **Critical headline safety rule** — primary readable copy must use a solid text fill. If you want extra energy, add shimmer behind the text, accent glows, or SVG decoration around it. Do **not** rely on `WebkitBackgroundClip: "text"` / transparent text fill for essential headline readability in rendered video.
 - **Accent line accents** — animated SVG lines under headlines or beside section labels
 - **Icon containers** — icons inside tinted rounded squares (`background: ${accent}15`, `borderRadius: 12px`)
 - **Glow on accent text** — `textShadow: 0 0 30px ${accent}44, 0 0 60px ${accent}22` for CTAs and stats
@@ -160,18 +160,31 @@ The actual text, images, device frames — positioned using the scene's layout a
 
 ### Layer 4: Overlay
 
-Grain texture and optional light leaks add film-quality polish. Always include grain. Use light leaks on 2-3 scenes for extra depth.
+Grain texture and a brief light leak flash add film-quality polish. Always include grain. **Light leaks must be used sparingly** — at most 1 scene, very short duration (10–18 frames max), and at low opacity (0.12–0.20). They should feel like a camera flare flash, NOT a sustained glow crawling across the frame. If the leak feels slow or heavy, remove it entirely — grain + vignette alone is sufficient.
 
 ```tsx
-import { AbsoluteFill, useCurrentFrame } from "remotion";
+import { AbsoluteFill, useCurrentFrame, interpolate } from "remotion";
 import { LightLeak } from "@remotion/light-leaks";
 
-export const FilmOverlay: React.FC<{ showLightLeak?: boolean; lightLeakSeed?: number }> = ({
+export const FilmOverlay: React.FC<{
+  showLightLeak?: boolean;
+  lightLeakSeed?: number;
+  lightLeakStartFrame?: number; // frame within this scene to start the flash
+}> = ({
   showLightLeak = false,
   lightLeakSeed = 0,
+  lightLeakStartFrame = 0,
 }) => {
   const frame = useCurrentFrame();
   const grainSeed = Math.floor(frame / 2);
+
+  // Flash in 6 frames, hold 4 frames, flash out 6 frames — total 16 frames
+  const leakOpacity = interpolate(
+    frame - lightLeakStartFrame,
+    [0, 6, 10, 16],
+    [0, 0.18, 0.18, 0],
+    { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
+  );
 
   return (
     <AbsoluteFill style={{ pointerEvents: "none" }}>
@@ -193,8 +206,12 @@ export const FilmOverlay: React.FC<{ showLightLeak?: boolean; lightLeakSeed?: nu
           background: "radial-gradient(ellipse 75% 70% at 50% 50%, transparent 0%, rgba(0,0,0,0.3) 100%)",
         }}
       />
-      {/* Light leak — optional, for 2-3 key scenes */}
-      {showLightLeak && <LightLeak seed={lightLeakSeed} />}
+      {/* Light leak — at most 1 scene, flashes in and out in ~16 frames */}
+      {showLightLeak && leakOpacity > 0 && (
+        <div style={{ position: "absolute", inset: 0, opacity: leakOpacity }}>
+          <LightLeak seed={lightLeakSeed} />
+        </div>
+      )}
     </AbsoluteFill>
   );
 };
@@ -528,26 +545,38 @@ const chars = text.split("");
 </div>
 ```
 
-### Gradient Shimmer Text
+### Safe Headline Sweep
 
-Animated gradient that sweeps across text. Attention-grabbing for hero headlines.
+Animated decorative light that sweeps behind solid text. Use this for hero headlines when you want energy without risking transparent text rendering issues in video export.
 
 ```tsx
-const shimmerX = interpolate(frame, [delay, delay + 40], [-100, 200], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+const shimmerX = interpolate(frame, [delay, delay + 40], [-20, 110], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
 
 <div
   style={{
+    position: "relative",
     fontSize,
     fontWeight,
-    background: `linear-gradient(90deg, ${colors.textPrimary} 0%, ${colors.accent} 45%, ${colors.textPrimary} 55%, ${colors.textPrimary} 100%)`,
-    backgroundSize: "200% 100%",
-    backgroundPosition: `${shimmerX}% 0`,
-    WebkitBackgroundClip: "text",
-    WebkitTextFillColor: "transparent",
-    backgroundClip: "text",
+    color: colors.textPrimary,
   }}
 >
-  {text}
+  <div
+    style={{
+      position: "absolute",
+      left: `${shimmerX}%`,
+      top: "50%",
+      width: 220,
+      height: 80,
+      borderRadius: 999,
+      background: `linear-gradient(90deg, transparent 0%, ${colors.accent}22 35%, ${colors.accentSecondary ?? colors.accent}18 55%, transparent 100%)`,
+      filter: "blur(24px)",
+      transform: "translate(-50%, -50%)",
+      opacity: 0.9,
+    }}
+  />
+  <div style={{ position: "relative", textShadow: `0 0 24px ${colors.accent}18` }}>
+    {text}
+  </div>
 </div>
 ```
 
@@ -1057,7 +1086,7 @@ These are the hallmarks of amateur video. If your scene matches any of these des
 
 ### "Bare Text on Gradient"
 **Symptom:** Any text element that sits directly on the gradient background without a container, glow, or decorative context.
-**Fix:** Wrap content in glassmorphism cards. Add accent lines below headlines. Use gradient text fills for headlines. Add textShadow glow on accent-colored text. Content should always feel "contained" in a visual space.
+**Fix:** Wrap content in glassmorphism cards. Add accent lines below headlines. Keep essential headlines on solid text fills, then add glow, shimmer, or decorative gradients around them if needed. Content should always feel "contained" in a visual space.
 
 ### "Copy-Paste Scenes"
 **Symptom:** Problem scene and Benefits scene use the same layout (both are staggered lists, both are centered).
@@ -1103,6 +1132,8 @@ Before considering any scene complete, verify:
 8. For demo scenes: do screenshot durations match measured narration segments in `narration-timing.json`? (audio-visual sync)
 9. For demo scenes: are all screenshots non-blank? (visually verified PNGs)
 10. For demo scenes: does the visual beat change when the narration topic changes, or when the current beat has run too long?
+11. For demo scenes: do section captures begin at an intentional section boundary rather than halfway through the content?
+12. For demo scenes: are all screenshots free of cookie banners, consent modals, chat launchers, and other blocking overlays?
 
 ## Post-Render Review Gate
 
@@ -1127,6 +1158,7 @@ Approve only if all are true:
 9. Cursor intent is obvious before every click, hover, or section jump
 10. Page and section changes feel believable rather than like random browsing
 11. Interaction SFX support the beat without sounding harsh, repetitive, or cartoonish
+12. Section screenshots feel intentionally framed, with headings and proof modules landing cleanly in the viewport
 
 ### Rework triggers
 
@@ -1136,6 +1168,8 @@ Reject and revise the render if any of these show up:
 - A feature is named before the supporting visual appears
 - Two or more transitions feel mushy, overly long, or stylistically repetitive
 - Any screenshot is compositionally weak even if it is not blank
+- A screenshot starts in the middle of a section, card grid, or proof module
+- A cookie banner, consent modal, or chat widget remains visible in a captured product shot
 - Captions state only where the viewer is instead of why the moment matters
 - A click or hover happens but the viewer cannot tell what payoff it created
 - The cursor path looks robotic, frantic, or disconnected from the spoken beat

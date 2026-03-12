@@ -1,6 +1,6 @@
 ---
 name: generate
-description: Produce a professional branded marketing explainer video for any web application using Remotion. Orchestrates Playwright-powered product capture, animated Remotion scenes, ElevenLabs narration, background music, sound effects, and Remotion rendering. All visual design is driven by the bundled frontend-design skill — never hardcode aesthetics.
+description: Produce a professional branded marketing explainer video for any web application using Remotion. Orchestrates Playwright-powered product capture, animated Remotion scenes, human-like ElevenLabs narration, background music, sound effects, and Remotion rendering. All visual design is driven by the bundled frontend-design skill — never hardcode aesthetics.
 disable-model-invocation: true
 user-invocable: true
 allowed-tools: Bash, Read, Write, Edit, Grep, Glob
@@ -20,7 +20,7 @@ Generate a professional branded marketing video for any web application. The pip
 
 - **Node.js** (v18+) and **npm** or **bun**
 - **Playwright** (`npm add -D playwright && npx playwright install chromium`)
-- **ElevenLabs MCP** or **edge-tts** for narration
+- **ElevenLabs MCP** for narration quality by default. Use `edge-tts` only as an explicit fallback when the user accepts lower voice quality.
 - A running web app (or public URL) to record
 
 Remotion and its packages are installed during the scaffold phase — no global install needed.
@@ -160,7 +160,7 @@ Gather from the user:
 
 #### Step 4b: Select Voice
 
-Do NOT default to a hardcoded voice. Analyze the platform's audience and tone, then find a matching voice.
+Do NOT default to a hardcoded voice. Analyze the platform's audience and tone, then find a matching voice. The default goal is **human-sounding marketing narration**, not merely intelligible TTS.
 
 **Voice matching heuristic:**
 
@@ -175,14 +175,29 @@ Do NOT default to a hardcoded voice. Analyze the platform's audience and tone, t
 **Workflow:**
 1. Determine which row best fits the platform
 2. Use `mcp__elevenlabs__search_voice_library` with matching search terms
-3. Pick a voice that sounds active, modern, and fits the brand — avoid generic "old narrator" voices
-4. Save the chosen `voice_id` and `voice_name` in `branding.json` (see Step 5)
+3. Narrow to 3-5 plausible voices instead of taking the first match
+4. Audition them on a short real line from the script hook or demo copy
+5. Pick the voice that sounds active, modern, and human under real narration text — avoid flat announcer reads, over-polished radio reads, and generic "old narrator" voices
+6. Save the chosen `voice_id` and `voice_name` in `branding.json` (see Step 5)
+
+**Reject a voice if any of these are true:**
+- It sounds like a default assistant or system TTS voice
+- Every sentence lands with the same cadence
+- Pauses feel mechanical or over-even
+- The delivery feels stiff, sleepy, or overly theatrical for the brand
+- The voice sounds good on one sentence but collapses on a longer demo line
 
 **Voice parameters** — tune these for professional explainer quality:
 - `stability`: 0.55–0.65 (enough consistency without sounding robotic)
 - `similarity_boost`: 0.75–0.85 (maintain voice character)
 - `style`: 0.1–0.2 (subtle expressiveness)
 - `speed`: 1.03–1.10 for most SaaS, product, and creative marketing videos. Only drop to `0.95–1.0` for intentionally calm, technical, financial, or healthcare brands.
+
+**Human-like narration policy:**
+- Premium neural narration is the default, not a luxury add-on
+- Never silently downgrade to OS speech, browser speech, or low-expression TTS
+- If only fallback TTS is available, tell the user it will sound less human and ask before proceeding
+- If the chosen voice sounds robotic on the actual script, change the voice or rewrite the line before moving on
 
 #### Step 5: Create branding.json
 
@@ -266,6 +281,17 @@ Save to `scripts/video/narration-sections.json`:
 
 Each `sceneId` maps to a video scene. Demo sections include a `screenshotId` that links to the **primary** visual beat in `tour-plan.json`, but a strong demo may still use multiple visual beats inside that measured narration window.
 
+#### CRITICAL: Write for a human voice, not for text on a page
+
+The narration must sound like a human brand narrator speaking naturally:
+
+- Prefer contractions where appropriate: "you're", "it's", "here's", "doesn't"
+- Vary sentence length so the read does not become metronomic
+- Use punctuation to shape breath and emphasis, but keep it subtle
+- Favor spoken phrasing over brochure phrasing
+- Break dense product claims into two cleaner lines instead of one overloaded sentence
+- If a line sounds stiff when read aloud, rewrite it before generating audio
+
 **Section structure:**
 1. **title** — Hook: What is this tool? (1-2 sentences)
 2. **problem** — Pain point it solves (1-2 sentences)
@@ -283,6 +309,13 @@ Each `sceneId` maps to a video scene. Demo sections include a `screenshotId` tha
 - The TTS model maintains consistent style when text flows naturally
 - Keep demo sections to one claim per beat. If the line starts stacking multiple features, split it
 
+**Robotic script red flags:**
+- Every sentence has the same length and structure
+- The copy reads like bullet points turned into prose
+- Too many noun piles: "AI automation workflow productivity collaboration platform"
+- Overuse of labels like "homepage", "dashboard page", "pricing page"
+- Long comma chains with no natural landing point
+
 **Pronunciation gotchas for TTS (IMPORTANT):**
 - Spell out abbreviations TTS might mangle: ".docx" → "dot docx"
 - Avoid "analyses" (verb) — TTS reads it as the noun. Use "reviews" or "examines"
@@ -296,6 +329,13 @@ Generate narration as **separate TTS files per section**, measure each segment's
 #### Phase 4a: Select Voice
 
 Use the voice settings from `branding.json` (chosen in Phase 2). All segments MUST use the same `voice_id`, `model_id`, `stability`, `similarity_boost`, `style`, and `speed` — this ensures consistent voice character across sections.
+
+Before generating the full set, audition 2-3 representative lines:
+- one hook line
+- one dense demo/proof line
+- one CTA line
+
+If the chosen voice sounds robotic, flat, or unnatural on those lines, change the voice or rewrite the lines before batch generation.
 
 #### Phase 4b: Generate TTS Per Section
 
@@ -313,6 +353,14 @@ For each section in narration-sections.json:
     output_directory: scripts/video/remotion/public/narration-segments/
   Save as: {index}-{sceneId}.mp3  (e.g., 01-title.mp3, 04-demo-01.mp3)
 ```
+
+After generation, spot-check the first few segments before continuing:
+- Does the hook sound like a person, not a machine?
+- Are the pauses natural?
+- Does the energy match the brand?
+- Are pronunciations clean?
+
+If not, do not continue into final render. Fix the voice choice or the copy first.
 
 #### Phase 4c: Measure Segment Durations
 
@@ -371,10 +419,16 @@ offset[n] = offset[n-1] + duration[n-1] + paddingSeconds
 
 Update `narration-timing.json` to include the `offset` field per segment.
 
-**Fallback (if ElevenLabs is unavailable):** Use `edge-tts` per section:
+**Fallback (if ElevenLabs is unavailable):** `edge-tts` is acceptable only with explicit user approval, because the result is usually less human and less marketable. Never silently downgrade. If the user approves the fallback, use `edge-tts` per section:
 ```bash
 edge-tts --text "<section text>" --voice en-AU-WilliamNeural --write-media scripts/video/remotion/public/narration-segments/01-title.mp3
 ```
+
+If `edge-tts` is used:
+- warn the user that narration quality will likely be lower
+- slow down slightly if needed to reduce robotic cadence
+- rewrite lines even more aggressively for spoken rhythm
+- plan an audio review pass before calling the video complete
 
 ### Phase 5: Capture Demo Screenshots
 
@@ -406,7 +460,7 @@ Plan **4-8 message moments** across the product story, usually captured as **8-1
 
 1. Map each `demo-*` section from `narration-sections.json` to a **message beat** first, then decide whether that beat needs one visual, two visuals, or a micro-sequence inside the same measured timing window
 2. The narration sections define which product claims must be visualized — don't capture pages that are not in service of those claims
-3. Prefer strong product states over generic page coverage. If a tighter crop, a scrolled state, a selected tab, or a before/after framing proves the claim better, use that instead of the default page top
+3. Prefer strong product states over generic page coverage. If a tighter crop, a scrolled state, a selected tab, or a before/after framing proves the claim better, use that instead of the default page top. But when capturing a section, frame it intentionally from the section start — do not let the viewport land halfway through the content block.
 4. Use approved shot archetypes: `establish`, `push-in`, `detail-crop`, `split-proof`, `result-state`
 5. Browser chrome and animated URL bars are optional tools, not mandatory framing for every beat. Use them when orientation helps. Remove them when they make the sequence feel like browsing
 6. Write an `interaction-plan.json` before capture. It should map each narration beat to one or more structured interaction beats such as `clickToPage`, `scrollToSection`, `hoverReveal`, `switchTab`, `expandAccordion`, or `resultReveal`
@@ -546,13 +600,15 @@ Write `scripts/video/capture-demo.ts` that executes the planned capture tour:
 - Viewport: 1920x1080 with `deviceScaleFactor: 2` for retina-sharp text
 - Navigate to each page using `waitUntil: "domcontentloaded"` (NOT `networkidle` — many sites have persistent connections that prevent it from resolving)
 - After navigation, wait for a visible content selector (`h1, h2, img, svg`) with 8s timeout, then add 2000ms settle time for fonts/animations
+- When capturing a section, measure its heading/container geometry and align the viewport to the **top of the section** with safe padding. Do not rely on `scrollIntoViewIfNeeded()` or arbitrary `scrollBy(...)` values as the final framing step.
+- Compensate for sticky headers or fixed nav bars when computing the scroll target so the heading is not tucked under browser or site chrome.
 - **Verify content before capturing:** Check that the page has visible headings/images (not blank). If blank, wait 5s more and retry.
 - **Verify file size after capturing:** A blank page produces a PNG < 50KB. If file is too small, log a warning and retry with longer wait.
 - Read `site-map.json` and `interaction-plan.json`, then execute only the planned pre-capture steps needed to create each screenshot state
 - If a beat needs a true destination or result state, capture additional named states for that same moment instead of faking the change with one screenshot
 - Measure selector geometry for click, hover, nav, tab, and accordion targets when those beats need a visible target reaction in Remotion
 - Take `page.screenshot({ type: "png" })` — viewport only, not full-page
-- Dismiss cookie banners before capturing
+- Dismiss cookie banners and overlays before discovery, after every navigation, after every section-alignment scroll, and again immediately before each screenshot
 - Store motion metadata in `tour-plan.json`: camera, ordered interaction beats, caption copy, transition mode, target geometry, URL changes, UI sound cues, and any additional captured states
 - Output: PNG files in `scripts/video/remotion/public/screenshots/`
 - Output: `scripts/video/site-map.json`
@@ -560,6 +616,11 @@ Write `scripts/video/capture-demo.ts` that executes the planned capture tour:
 - Output: `scripts/video/tour-plan.json` (no narration timestamps — timing comes from `narration-timing.json`)
 - If one narration section runs longer than 4–6 seconds, plan additional visual beats inside that same section instead of letting a single screenshot sit unchanged
 - Prefer a mix of interaction behaviors across the demo: some quiet, some scroll-led, some click-led, some state-led. Repetition should be justified by the product, not by the template
+- Reject a screenshot and recapture if any of these are true:
+  - the section heading is clipped or sits too low in the viewport
+  - the frame begins mid-section or mid-card-row
+  - a cookie banner, consent modal, chat launcher, or sticky announcement obscures the content
+  - the screenshot shows only a partial proof module with awkward whitespace above it
 
 CRITICAL — what NOT to do:
 - Don't use `recordVideo` — screen recordings look amateur with jittery scrolling and loading states
@@ -672,7 +733,7 @@ Build each scene as a React component. **All animations MUST be driven by `useCu
 
 #### CRITICAL: Use the Complete Scene Composition Templates
 
-Before writing ANY scene, read the **"Complete Scene Composition Reference"** section at the bottom of [remotion-scenes.md](${CLAUDE_SKILL_DIR}/references/remotion-scenes.md). These are production-ready scene implementations that combine all 4 layers into visually rich output. **Every scene MUST be based on one of these templates** — adapt the content, colors, and layout but keep the structural richness (glow orbs, geometric accents, glassmorphism cards, gradient text, blur-in entrances).
+Before writing ANY scene, read the **"Complete Scene Composition Reference"** section at the bottom of [remotion-scenes.md](${CLAUDE_SKILL_DIR}/references/remotion-scenes.md). These are production-ready scene implementations that combine all 4 layers into visually rich output. **Every scene MUST be based on one of these templates** — adapt the content, colors, and layout but keep the structural richness (glow orbs, geometric accents, glassmorphism cards, solid readable headlines with decorative sweeps, blur-in entrances).
 
 A scene that's just text on a gradient is a PowerPoint slide. If your scene doesn't have at least 2 Layer-2 decorative elements, glassmorphism containers for content, and blur-in or scale+translate entrances — it's not done.
 
@@ -680,9 +741,9 @@ Also read [video-design-principles.md](${CLAUDE_SKILL_DIR}/references/video-desi
 
 1. **The 4-Layer Frame Model** — every scene needs: animated background (Layer 1), decorative mid-ground elements with AT LEAST 2 distinct elements (Layer 2), content in containers/cards not bare text (Layer 3), and film overlay with grain + vignette (Layer 4).
 2. **Scene Layout Variety** — no two consecutive scenes may share the same layout archetype. Use the vocabulary: centered-stack, asymmetric-left, asymmetric-right, split-screen, card-contained, full-bleed, diagonal.
-3. **Typography Animation Variety** — vary text animations across scenes. Don't use fadeUp everywhere. Choose from: blur-in, masked reveal, letter stagger, gradient shimmer, scale-bounce, split-line, typewriter, stagger.
+3. **Typography Animation Variety** — vary text animations across scenes. Don't use fadeUp everywhere. Choose from: blur-in, masked reveal, letter stagger, decorative headline sweeps, scale-bounce, split-line, typewriter, stagger. Keep critical copy on solid fills rather than transparent clipped text.
 4. **Demo Screenshot Carousel** — the demo scene MUST use a screenshot carousel with shot-specific camera choreography, caption overlays, and animated URL bar — NOT a screen recording.
-5. **Light Leaks** — use `@remotion/light-leaks` `<LightLeak>` overlay in at least 2-3 scenes for cinematic depth.
+5. **Light Leaks** — use `@remotion/light-leaks` `<LightLeak>` overlay in **at most 1 scene**, as a brief flash (10–18 frames, opacity 0.12–0.20). It must feel like a quick camera flare — never a slow glow crawling across the frame. Wrap it in an opacity interpolation so it flashes in and out. If it reads as slow or heavy, remove it entirely.
 6. **Decorative Elements** — every non-demo scene needs AT LEAST TWO visual elements besides text (floating gradient orbs, accent lines, geometric shapes, conic-gradient rings, floating particles, bokeh circles).
 7. **Content Containers** — problem/benefits/stats scenes MUST use glassmorphism cards (backdrop-blur + semi-transparent bg + subtle border) — NEVER bare text or bullet lists on a gradient.
 8. **Glow Effects** — at least 2 scenes should have `textShadow` glow on accent text or numbers.
@@ -712,20 +773,20 @@ Consult the remotion-best-practices skill for Remotion-specific patterns:
 - [sfx.md](${CLAUDE_SKILL_DIR}/../remotion-best-practices/rules/sfx.md) — sound effect URLs
 - [light-leaks.md](${CLAUDE_SKILL_DIR}/../remotion-best-practices/rules/light-leaks.md) — `<LightLeak>` overlays
 
-See [remotion-scenes.md](${CLAUDE_SKILL_DIR}/references/remotion-scenes.md) for structural animation patterns (multi-layer backgrounds, floating elements, glassmorphism cards, staggered lists, counting numbers, Ken Burns zoom, gradient text, blur-in reveals, demo captions). These patterns provide the animation skeleton — you apply the creative direction's visual skin on top.
+See [remotion-scenes.md](${CLAUDE_SKILL_DIR}/references/remotion-scenes.md) for structural animation patterns (multi-layer backgrounds, floating elements, glassmorphism cards, staggered lists, counting numbers, Ken Burns zoom, safe headline sweeps, blur-in reveals, demo captions). These patterns provide the animation skeleton — you apply the creative direction's visual skin on top.
 
 #### Typical scene types
 
 A standard explainer video includes these scene categories. **Base each scene on the corresponding template from the "Complete Scene Composition Reference" in remotion-scenes.md.** Adapt names, count, content, and design per the creative direction — but keep the structural richness. **Each scene must use a different layout archetype from its neighbors:**
 
 - **Opening** (2–3s) — logo with glow halo, floating particles, geometric border, blur-in entrance — see IntroScene template — **centered-stack** layout
-- **Title** (4–6s) — gradient shimmer headline, accent line drawing, decorative orbs, staggered entrance — see TitleScene template — **asymmetric-left** or **full-bleed** layout
+- **Title** (4–6s) — solid headline with decorative sweep, accent line drawing, decorative orbs, staggered entrance — see TitleScene template — **asymmetric-left** or **full-bleed** layout
 - **Problem** (5–7s) — glassmorphism cards in 2x2 grid with icons, negative-tinted glow, staggered card entrance — see ProblemScene template — **card-contained** or **split-screen** layout. **NEVER a bullet list.**
 - **Demo** (35–45s) — screenshot carousel or micro-sequence in a device frame, full-bleed crop, or split-proof layout with shot-specific camera motion, captions, optional URL framing, and optional cursor cues. **Each narration section's window is derived from `narration-timing.json`**, but that window may contain multiple visual beats
 - **Benefits** (4–6s) — feature cards with accent bars, asymmetric layout with decorative ring elements — see BenefitsScene template — **must use different layout than Problem** (e.g., if Problem is card-contained, Benefits should be asymmetric-right)
 - **Stats** (3–4s) — animated number counting with glow effects, numbers in glassmorphism cards — see StatsScene template — **full-bleed** or **centered** layout
-- **Section dividers** (3–4s) — heading + description transitions with gradient text and accent elements
-- **Closing** (4–6s) — logo, tagline, pulsing CTA with glow, light leak — see OutroScene template — **centered-stack** layout
+- **Section dividers** (3–4s) — heading + description transitions with solid readable text plus accent elements
+- **Closing** (4–6s) — logo, tagline, pulsing CTA with glow, optional brief light leak flash — see OutroScene template — **centered-stack** layout
 
 #### Key rules
 
@@ -830,9 +891,10 @@ Quality Checklist:
 - [ ] No blank/empty screenshots — verify every PNG has visible content before rendering
 - [ ] Demo emphasis comes from shot choice, camera movement, and captions rather than highlight boxes over the UI
 - [ ] Every non-demo scene has at least one decorative element besides text
-- [ ] @remotion/light-leaks <LightLeak> used in at least 2 scenes
+- [ ] Light leaks are either absent or used in at most 1 scene as a brief flash (10–18 frames, opacity ≤ 0.20) — never a sustained glow across the full scene
 - [ ] Background music is present with fade in/out
 - [ ] Transition SFX are present and varied
+- [ ] Narration sounds human-like, emotionally appropriate, and not machine-flat
 - [ ] All colors come from branding.ts (zero hardcoded hex values in scenes)
 - [ ] Text respects safe zones (within 90% of frame, ~96px margins)
 - [ ] Body text is at least 32px, headlines at least 64px
@@ -881,7 +943,11 @@ Rework and rerender if any of these are true:
 - The narration references a feature before it appears on screen
 - Two or more scenes feel rushed, mushy, or overlong
 - A screenshot is technically valid but compositionally weak, cluttered, or visually ambiguous
+- A screenshot starts in the middle of a section instead of at a clear section boundary
+- A cookie banner, consent modal, or sticky widget remains visible in any captured product shot
 - Music or SFX make any narration line harder to understand
+- The voice sounds robotic, overly even, or obviously synthetic
+- Sentence rhythm repeats so consistently that the delivery feels machine-generated
 - A click, hover, or section jump happens without a clear visual payoff
 - The cursor path feels random, robotic, or disconnected from the narration beat
 - The export feels polished but low-energy or generic after the uninterrupted watch
@@ -907,6 +973,7 @@ Review the output. Common adjustments:
 - **Music too loud:** Lower the volume prop on the background music `<Audio>`
 - **Transition too abrupt or too mushy:** Rebalance toward the 6–10 frame default and align cuts with phrase endings
 - **TTS mispronunciation:** Edit the section text in `narration-sections.json` and regenerate that segment's TTS, then re-concatenate
+- **Narration sounds robotic:** Change the voice, lower stability slightly, rewrite lines for spoken rhythm, regenerate 2-3 test segments, then rerender
 - **Design feels generic:** Re-read the video-design-principles.md, reconsider the creative direction, and redesign the scenes
 
 ## File Structure

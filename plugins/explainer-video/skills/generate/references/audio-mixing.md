@@ -25,6 +25,19 @@ import { staticFile } from "remotion";
 
 No volume adjustment needed — narration plays at full volume.
 
+### Source quality comes first
+
+Mixing cannot rescue bad narration. If the voice sounds robotic, flat, or obviously synthetic at full volume, do not try to hide it with music or effects — regenerate the narration instead.
+
+Before final render, ask:
+
+- Does the voice sound human and brand-appropriate?
+- Are pauses natural rather than mechanical?
+- Is emphasis landing on the right words?
+- Does the CTA still sound alive after the rest of the script?
+
+If the answer is "no", fix the voice choice or the copy before touching the mix.
+
 ## Layer 2: Background Music
 
 Loop a music track at low volume. The `volume` callback enables dynamic ducking if needed:
@@ -140,3 +153,4 @@ export const AudioLayers: React.FC<{ transitionFrames: number[] }> = ({ transiti
 - **SFX at 25% volume max** — they should accent, not distract
 - **Fade music in/out** — abrupt starts/stops sound unprofessional
 - **One whoosh per transition** — don't double up on SFX
+- **Never use music to mask robotic narration** — if the voice is the problem, regenerate the voice
